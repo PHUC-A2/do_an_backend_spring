@@ -5,8 +5,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-// import org.springframework.security.authentication.BadCredentialsException;
-// import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -19,36 +17,31 @@ import com.example.backend.domain.response.common.RestResponse;
 
 @RestControllerAdvice
 public class GlobalException {
-    @ExceptionHandler(value = {
-            IdInvalidException.class,
-    })
+
+    @ExceptionHandler(value = { IdInvalidException.class })
     public ResponseEntity<RestResponse<Object>> handleIdException(Exception ex) {
         RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError("Invalid ID");
+        res.setError("ID không hợp lệ");
         res.setMessage(ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
-    @ExceptionHandler(value = {
-            EmailInvalidException.class,
-    })
+    @ExceptionHandler(value = { EmailInvalidException.class })
     public ResponseEntity<RestResponse<Object>> handleEmailException(Exception ex) {
         RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError("Invalid Email");
+        res.setError("Email không hợp lệ");
         res.setMessage(ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
-    @ExceptionHandler(value = {
-            NoResourceFoundException.class,
-    })
+    @ExceptionHandler(value = { NoResourceFoundException.class })
     public ResponseEntity<RestResponse<Object>> handleNotFoundException(NoResourceFoundException ex) {
         RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.NOT_FOUND.value());
-        res.setError("Not Found");
-        res.setMessage(ex.getMessage()); // hoặc custom: "API endpoint không tồn tại"
+        res.setError("Không tìm thấy");
+        res.setMessage("API hoặc tài nguyên yêu cầu không tồn tại"); // có thể custom
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(res);
     }
 
@@ -57,11 +50,11 @@ public class GlobalException {
         BindingResult result = ex.getBindingResult();
         final List<FieldError> fieldErrors = result.getFieldErrors();
 
-        RestResponse<Object> res = new RestResponse<Object>();
+        RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError(ex.getBody().getDetail());
+        res.setError("Dữ liệu đầu vào không hợp lệ");
 
-        List<String> errors = fieldErrors.stream().map(f -> f.getDefaultMessage()).collect(Collectors.toList());
+        List<String> errors = fieldErrors.stream().map(FieldError::getDefaultMessage).collect(Collectors.toList());
         res.setMessage(errors.size() > 1 ? errors : errors.get(0));
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
@@ -71,52 +64,35 @@ public class GlobalException {
     public ResponseEntity<RestResponse<Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-        res.setError("Invalid parameter type");
+        res.setError("Kiểu tham số không hợp lệ");
 
         String paramName = ex.getName();
         String requiredType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "Unknown";
         String invalidValue = ex.getValue() != null ? ex.getValue().toString() : "null";
 
-        res.setMessage(String.format("Parameter '%s' should be of type %s but value '%s' is invalid",
+        res.setMessage(String.format(
+                "Tham số '%s' phải có kiểu %s nhưng giá trị '%s' không hợp lệ",
                 paramName, requiredType, invalidValue));
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
-    @ExceptionHandler(value = {
-            StorageException.class,
-            // FileUploadException.class,
-    })
+    @ExceptionHandler(value = { StorageException.class })
     public ResponseEntity<RestResponse<Object>> handleFileUploadException(Exception ex) {
-        RestResponse<Object> res = new RestResponse<Object>();
+        RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.BAD_REQUEST.value());
+        res.setError("Lỗi khi tải file");
         res.setMessage(ex.getMessage());
-        res.setError("Exception upload file...");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
-    // @ExceptionHandler(value = {
-    // StorageException.class,
-    // })
-    // public ResponseEntity<RestResponse<Object>>
-    // handleFileUploadException(Exception ex) {
-    // RestResponse<Object> res = new RestResponse<Object>();
-    // res.setStatusCode(HttpStatus.BAD_REQUEST.value());
-    // res.setError(ex.getMessage());
-    // res.setMessage("Exception upload file...");
-    // return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
-    // }
-
-    // @ExceptionHandler(value = {
-    // PermissionException.class,
-    // })
-    // public ResponseEntity<RestResponse<Object>>
-    // handlePermissionException(Exception ex) {
-    // RestResponse<Object> res = new RestResponse<Object>();
-    // res.setStatusCode(HttpStatus.FORBIDDEN.value());
-    // res.setError(ex.getMessage());
-    // res.setMessage("Forbidden");
-    // return ResponseEntity.status(HttpStatus.FORBIDDEN).body(res); // 403 (đăng
-    // nhập nhưng chưa có quyền)
-    // }
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<RestResponse<Object>> handleAllExceptions(Exception ex) {
+        RestResponse<Object> res = new RestResponse<>();
+        res.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        res.setError("Lỗi hệ thống");
+        res.setMessage("Đã xảy ra lỗi không xác định, vui lòng thử lại sau");
+        ex.printStackTrace(); // log stack trace cho dev
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+    }
 }
