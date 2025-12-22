@@ -1,0 +1,50 @@
+package com.example.backend.config;
+
+import java.util.Arrays;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+@Configuration
+public class CorsConfig implements WebMvcConfigurer {
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+
+        // cho phép các URL nào có thể kết nối tới backend
+        configuration.setAllowedOrigins(
+                Arrays.asList("http://localhost:3000",
+                        "http://localhost:4173",
+                        "http://localhost:5173",
+                        "http://172.20.10.3:5173",
+                        "http://192.168.1.9:5173",
+                        "http://192.168.1.2:5173",
+                        "http://192.168.1.10:5173",
+                        "http://192.168.1.10:8080",
+                        "https://unvigorous-nondeleteriously-mandi.ngrok-free.dev"
+                // "http://localhost:8080/api/v1/products?page=1&size=12"
+                ));
+
+        // các method nào đc kết nối
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+
+        // các phần header được phép gửi lên
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "Accept"));
+
+        // gửi kèm cookies hay không
+        configuration.setAllowCredentials(true);
+
+        // thời gian pre-flight request có thể cache (tính theo seconds)
+        configuration.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // cấu hình cors cho tất cả api
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
+}

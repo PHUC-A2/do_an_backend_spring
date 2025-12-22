@@ -1,0 +1,37 @@
+{
+  "groups": [
+    {
+      "name": "backend",
+      "type": "com.example.backend.config.BackendProperties",
+      "sourceType": "com.example.backend.config.BackendProperties",
+      "description": "All custom backend properties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "backend.upload-file.base-uri",
+      "type": "java.lang.String",
+      "description": "Base URI for uploaded files"
+    },
+    {
+      "name": "backend.jwt.base64-secret",
+      "type": "java.lang.String",
+      "description": "JWT secret key"
+    },
+    {
+      "name": "backend.jwt.refresh-token-validity-in-second",
+      "type": "int",
+      "description": "JWT refresh token validity in seconds"
+    },
+    {
+      "name": "backend.jwt.refresh-token-validity-in-seconds",
+      "type": "int",
+      "description": "JWT refresh token validity in seconds"
+    },
+    {
+      "name": "backend.jwt.access-token-validity-in-second",
+      "type": "int",
+      "description": "JWT access token validity in seconds"
+    }
+  ]
+}
