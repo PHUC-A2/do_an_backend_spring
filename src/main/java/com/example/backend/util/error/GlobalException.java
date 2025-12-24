@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -103,5 +104,15 @@ public class GlobalException {
         res.setMessage("Đã xảy ra lỗi không xác định, vui lòng thử lại sau");
         ex.printStackTrace(); // log stack trace cho dev
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
+    }
+
+    // login
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<RestResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
+        RestResponse<Object> res = new RestResponse<>();
+        res.setStatusCode(HttpStatus.UNAUTHORIZED.value());
+        res.setError("Đăng nhập thất bại");
+        res.setMessage("Email hoặc mật khẩu không đúng");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(res);
     }
 }

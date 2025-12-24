@@ -1,4 +1,4 @@
-package com.example.backend.domain.request.register;
+package com.example.backend.domain.request.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;

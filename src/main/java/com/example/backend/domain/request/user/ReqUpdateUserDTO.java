@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReqUpdateUserDTO {
 
-    private Long id;
 
     @NotBlank(message = "name không được để trống")
     private String name;

@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.backend.domain.entity.User;
-import com.example.backend.domain.request.register.ReqLoginDTO;
-import com.example.backend.domain.request.register.ReqRegisterDTO;
+import com.example.backend.domain.request.auth.ReqLoginDTO;
+import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.response.account.AccountUserDTO;
 import com.example.backend.domain.response.account.ResAccountDTO;
 import com.example.backend.domain.response.common.MessageResponse;
@@ -89,7 +89,7 @@ public class AuthController {
             res.setUser(loginUser);
 
             // 7. DTO dùng để nhúng vào JWT (token)
-            // ❗ DTO này KHÔNG liên quan đến response
+            // DTO này KHÔNG liên quan đến response
             JwtUserDTO jwtUser = new JwtUserDTO(
                     currentUserDB.getId(),
                     currentUserDB.getEmail(),
@@ -270,7 +270,7 @@ public class AuthController {
         // hardpasswd
         String hardPassword = this.passwordEncoder.encode(dto.getPassword());
         user.setPassword(hardPassword);
-        this.userService.createUser(user);
+        this.userService.createUserForRegister(user);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("Đăng ký tài khoản thành công"));
     }
