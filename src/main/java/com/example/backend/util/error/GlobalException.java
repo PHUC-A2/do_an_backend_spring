@@ -36,6 +36,15 @@ public class GlobalException {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
+    @ExceptionHandler(value = { NameInvalidException.class })
+    public ResponseEntity<RestResponse<Object>> handleNameException(Exception ex) {
+        RestResponse<Object> res = new RestResponse<>();
+        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
+        res.setError("Name không hợp lệ");
+        res.setMessage(ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    }
+
     @ExceptionHandler(value = { NoResourceFoundException.class })
     public ResponseEntity<RestResponse<Object>> handleNotFoundException(NoResourceFoundException ex) {
         RestResponse<Object> res = new RestResponse<>();
