@@ -86,7 +86,6 @@ public class RoleService {
     // convert req create
     public Role convertToReqCreateRoleDTO(ReqCreateRoleDTO req) {
         Role role = new Role();
-        role.setId(req.getId());
         role.setName(req.getName());
         role.setDescription(req.getDescription());
 

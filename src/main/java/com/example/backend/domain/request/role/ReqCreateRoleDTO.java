@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReqCreateRoleDTO {
-    private Long id;
 
     @NotBlank(message = "name không được để trống")
     private String name;
