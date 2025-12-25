@@ -2,20 +2,22 @@ package com.example.backend.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import com.example.backend.domain.entity.Permission;
 import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.request.role.ReqCreateRoleDTO;
 import com.example.backend.domain.request.role.ReqUpdateRoleDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
+import com.example.backend.domain.response.permission.ResPermissionDTO;
 import com.example.backend.domain.response.role.ResCreateRoleDTO;
 import com.example.backend.domain.response.role.ResRoleDTO;
 import com.example.backend.domain.response.role.ResUpdateRoleDTO;
+import com.example.backend.repository.PermissionRepository;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.util.error.IdInvalidException;
 import com.example.backend.util.error.NameInvalidException;
@@ -23,9 +25,11 @@ import com.example.backend.util.error.NameInvalidException;
 @Service
 public class RoleService {
     private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
 
-    public RoleService(RoleRepository roleRepository) {
+    public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository) {
         this.roleRepository = roleRepository;
+        this.permissionRepository = permissionRepository;
     }
 
     public ResCreateRoleDTO createRole(ReqCreateRoleDTO roleReq) throws NameInvalidException {
@@ -64,13 +68,18 @@ public class RoleService {
         return rs;
     }
 
+    // public Role getRoleById(Long id) throws IdInvalidException {
+    // Optional<Role> roleOptional = this.roleRepository.findById(id);
+    // if (roleOptional.isPresent()) {
+    // return roleOptional.get();
+    // } else {
+    // throw new IdInvalidException("Không tìm thấy Role với ID = " + id);
+    // }
+    // }
+
     public Role getRoleById(Long id) throws IdInvalidException {
-        Optional<Role> roleOptional = this.roleRepository.findById(id);
-        if (roleOptional.isPresent()) {
-            return roleOptional.get();
-        } else {
-            throw new IdInvalidException("Không tìm thấy Role với ID = " + id);
-        }
+        return roleRepository.findWithPermissionsById(id)
+                .orElseThrow(() -> new IdInvalidException("Không tìm thấy Role với ID = " + id));
     }
 
     public ResUpdateRoleDTO updateRole(Long id, ReqUpdateRoleDTO roleReq)
@@ -120,6 +129,19 @@ public class RoleService {
         res.setUpdatedAt(role.getUpdatedAt());
         res.setUpdatedBy(role.getUpdatedBy());
 
+        // map permissions
+        res.setPermissions(
+                role.getPermissions()
+                        .stream()
+                        .map(p -> {
+                            ResPermissionDTO dto = new ResPermissionDTO();
+                            dto.setId(p.getId());
+                            dto.setName(p.getName());
+                            dto.setDescription(p.getDescription());
+                            return dto;
+                        })
+                        .toList());
+
         return res;
     }
 
@@ -145,6 +167,41 @@ public class RoleService {
         res.setUpdatedAt(role.getUpdatedAt());
         res.setUpdatedBy(role.getUpdatedBy());
         return res;
+    }
+
+    // gắn permisison cho role
+    public ResRoleDTO assignPermissionsToRole(
+            Long roleId,
+            List<Long> permissionIds) throws IdInvalidException {
+
+        // 1. Check null
+        if (permissionIds == null) {
+            throw new IdInvalidException("permissionIds không được null");
+        }
+
+        // 2. Check role tồn tại
+        Role role = this.getRoleById(roleId);
+
+        // 3. Cho phép clear permission
+        if (permissionIds.isEmpty()) {
+            role.getPermissions().clear();
+            roleRepository.save(role);
+            return convertToResRoleDTO(role);
+        }
+
+        // 4. Check permission tồn tại
+        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
+
+        if (permissions.size() != permissionIds.size()) {
+            throw new IdInvalidException("Có permission không tồn tại");
+        }
+
+        // 5. Sync (giống Laravel sync)
+        role.getPermissions().clear();
+        role.getPermissions().addAll(permissions);
+
+        Role savedRole = roleRepository.save(role);
+        return convertToResRoleDTO(savedRole);
     }
 
 }

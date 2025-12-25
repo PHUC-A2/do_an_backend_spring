@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.backend.domain.entity.Role;
+import com.example.backend.domain.request.role.ReqAssignPermissionsToRoleDTO;
 import com.example.backend.domain.request.role.ReqCreateRoleDTO;
 import com.example.backend.domain.request.role.ReqUpdateRoleDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
@@ -76,4 +77,15 @@ public class RoleController {
         this.roleService.deleteRole(id);
         return ResponseEntity.ok().build();
     }
+
+    @PutMapping("/roles/{id}/assign-permissions")
+    @ApiMessage("Gán danh sách permission cho role")
+    public ResponseEntity<ResRoleDTO> assignPermissions(
+            @PathVariable Long id,
+            @Valid @RequestBody ReqAssignPermissionsToRoleDTO req) throws IdInvalidException {
+
+        return ResponseEntity.ok(
+                this.roleService.assignPermissionsToRole(id, req.getPermissionIds()));
+    }
+
 }
