@@ -1,5 +1,7 @@
 package com.example.backend.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -11,6 +13,9 @@ import com.example.backend.domain.entity.Permission;
 import com.example.backend.domain.request.permission.ReqCreatePermissionDTO;
 import com.example.backend.domain.request.permission.ReqUpdatePermissionDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
+import com.example.backend.domain.response.permission.ResCreatePermissionDTO;
+import com.example.backend.domain.response.permission.ResPermissionDTO;
+import com.example.backend.domain.response.permission.ResUpdatePermissionDTO;
 import com.example.backend.repository.PermissionRepository;
 import com.example.backend.util.error.IdInvalidException;
 import com.example.backend.util.error.NameInvalidException;
@@ -25,7 +30,7 @@ public class PermissionService {
     }
 
     // CREATE
-    public Permission createPermission(ReqCreatePermissionDTO permissionReq)
+    public ResCreatePermissionDTO createPermission(ReqCreatePermissionDTO permissionReq)
             throws NameInvalidException {
 
         boolean isNameExists = permissionRepository.existsByName(permissionReq.getName());
@@ -35,7 +40,9 @@ public class PermissionService {
         }
 
         Permission permission = convertToReqCreatePermissionDTO(permissionReq);
-        return this.permissionRepository.save(permission);
+
+        Permission savePermission = this.permissionRepository.save(permission);
+        return this.convertToResCreatePermissionDTO(savePermission);
     }
 
     // GET ALL + PAGINATION
@@ -53,7 +60,13 @@ public class PermissionService {
         mt.setTotal(pagePermission.getTotalElements());
 
         rs.setMeta(mt);
-        rs.setResult(pagePermission.getContent());
+
+        List<ResPermissionDTO> resList = new ArrayList<>();
+        for (Permission permission : pagePermission.getContent()) {
+            resList.add(this.convertToResPermissionDTO(permission));
+        }
+
+        rs.setResult(resList);
 
         return rs;
     }
@@ -71,7 +84,7 @@ public class PermissionService {
     }
 
     // UPDATE
-    public Permission updatePermission(
+    public ResUpdatePermissionDTO updatePermission(
             Long id, ReqUpdatePermissionDTO permissionReq)
             throws IdInvalidException, NameInvalidException {
 
@@ -87,7 +100,8 @@ public class PermissionService {
         permission.setName(permissionReq.getName());
         permission.setDescription(permissionReq.getDescription());
 
-        return this.permissionRepository.save(permission);
+        Permission updatePermission = this.permissionRepository.save(permission);
+        return this.convertToResUpdatePermissionDTO(updatePermission);
     }
 
     // DELETE
@@ -106,5 +120,45 @@ public class PermissionService {
         permission.setDescription(req.getDescription());
 
         return permission;
+    }
+
+    // entity -> res get
+    public ResPermissionDTO convertToResPermissionDTO(Permission permission) {
+
+        ResPermissionDTO res = new ResPermissionDTO();
+
+        res.setId(permission.getId());
+        res.setName(permission.getName());
+        res.setDescription(permission.getDescription());
+        res.setCreatedAt(permission.getCreatedAt());
+        res.setCreatedBy(permission.getCreatedBy());
+        res.setUpdatedAt(permission.getUpdatedAt());
+        res.setUpdatedBy(permission.getUpdatedBy());
+
+        return res;
+    }
+
+    public ResCreatePermissionDTO convertToResCreatePermissionDTO(Permission permission) {
+
+        ResCreatePermissionDTO res = new ResCreatePermissionDTO();
+
+        res.setId(permission.getId());
+        res.setName(permission.getName());
+        res.setDescription(permission.getDescription());
+        res.setCreatedAt(permission.getCreatedAt());
+        res.setCreatedBy(permission.getCreatedBy());
+        return res;
+    }
+
+    public ResUpdatePermissionDTO convertToResUpdatePermissionDTO(Permission permission) {
+
+        ResUpdatePermissionDTO res = new ResUpdatePermissionDTO();
+
+        res.setId(permission.getId());
+        res.setName(permission.getName());
+        res.setDescription(permission.getDescription());
+        res.setUpdatedAt(permission.getUpdatedAt());
+        res.setUpdatedBy(permission.getUpdatedBy());
+        return res;
     }
 }

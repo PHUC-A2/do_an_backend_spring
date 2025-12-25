@@ -17,6 +17,9 @@ import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.request.role.ReqCreateRoleDTO;
 import com.example.backend.domain.request.role.ReqUpdateRoleDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
+import com.example.backend.domain.response.role.ResCreateRoleDTO;
+import com.example.backend.domain.response.role.ResRoleDTO;
+import com.example.backend.domain.response.role.ResUpdateRoleDTO;
 import com.example.backend.service.RoleService;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.error.IdInvalidException;
@@ -37,9 +40,10 @@ public class RoleController {
 
     @PostMapping("/roles")
     @ApiMessage("Tạo vai trò mới")
-    public ResponseEntity<Role> createRole(@Valid @RequestBody ReqCreateRoleDTO dto) throws NameInvalidException {
-        Role role = this.roleService.createRole(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(role);
+    public ResponseEntity<ResCreateRoleDTO> createRole(@Valid @RequestBody ReqCreateRoleDTO dto)
+            throws NameInvalidException {
+        ResCreateRoleDTO res = this.roleService.createRole(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
     @GetMapping("/roles")
@@ -51,19 +55,19 @@ public class RoleController {
 
     @GetMapping("/roles/{id}")
     @ApiMessage("Lấy thông tin vai trò theo ID")
-    public ResponseEntity<Role> getRoleById(@PathVariable("id") Long id) throws IdInvalidException {
+    public ResponseEntity<ResRoleDTO> getRoleById(@PathVariable("id") Long id) throws IdInvalidException {
         Role role = this.roleService.getRoleById(id);
-        return ResponseEntity.ok(role);
+        return ResponseEntity.ok(this.roleService.convertToResRoleDTO(role));
     }
 
     @PutMapping("/roles/{id}")
     @ApiMessage("Cập nhật thông tin vai trò")
-    public ResponseEntity<Role> updateRole(@PathVariable("id") Long id,
+    public ResponseEntity<ResUpdateRoleDTO> updateRole(@PathVariable("id") Long id,
             @Valid @RequestBody ReqUpdateRoleDTO dto)
             throws IdInvalidException, NameInvalidException {
 
-        Role role = this.roleService.updateRole(id, dto);
-        return ResponseEntity.ok(role);
+        ResUpdateRoleDTO res = this.roleService.updateRole(id, dto);
+        return ResponseEntity.ok(res);
     }
 
     @DeleteMapping("/roles/{id}")

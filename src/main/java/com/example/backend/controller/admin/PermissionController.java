@@ -17,6 +17,9 @@ import com.example.backend.domain.entity.Permission;
 import com.example.backend.domain.request.permission.ReqCreatePermissionDTO;
 import com.example.backend.domain.request.permission.ReqUpdatePermissionDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
+import com.example.backend.domain.response.permission.ResCreatePermissionDTO;
+import com.example.backend.domain.response.permission.ResPermissionDTO;
+import com.example.backend.domain.response.permission.ResUpdatePermissionDTO;
 import com.example.backend.service.PermissionService;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.error.IdInvalidException;
@@ -37,12 +40,12 @@ public class PermissionController {
 
     @PostMapping("/permissions")
     @ApiMessage("Tạo quyền mới")
-    public ResponseEntity<Permission> createPermission(
+    public ResponseEntity<ResCreatePermissionDTO> createPermission(
             @Valid @RequestBody ReqCreatePermissionDTO dto)
             throws NameInvalidException {
 
-        Permission permission = this.permissionService.createPermission(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(permission);
+        ResCreatePermissionDTO res = this.permissionService.createPermission(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
     @GetMapping("/permissions")
@@ -56,23 +59,23 @@ public class PermissionController {
 
     @GetMapping("/permissions/{id}")
     @ApiMessage("Lấy thông tin quyền theo ID")
-    public ResponseEntity<Permission> getPermissionById(
+    public ResponseEntity<ResPermissionDTO> getPermissionById(
             @PathVariable("id") Long id)
             throws IdInvalidException {
 
         Permission permission = this.permissionService.getPermissionById(id);
-        return ResponseEntity.ok(permission);
+        return ResponseEntity.ok(this.permissionService.convertToResPermissionDTO(permission));
     }
 
     @PutMapping("/permissions/{id}")
     @ApiMessage("Cập nhật thông tin quyền")
-    public ResponseEntity<Permission> updatePermission(
+    public ResponseEntity<ResUpdatePermissionDTO> updatePermission(
             @PathVariable("id") Long id,
             @Valid @RequestBody ReqUpdatePermissionDTO dto)
             throws IdInvalidException, NameInvalidException {
 
-        Permission permission = this.permissionService.updatePermission(id, dto);
-        return ResponseEntity.ok(permission);
+        ResUpdatePermissionDTO res = this.permissionService.updatePermission(id, dto);
+        return ResponseEntity.ok(res);
     }
 
     @DeleteMapping("/permissions/{id}")
