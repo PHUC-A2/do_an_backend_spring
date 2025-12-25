@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.backend.domain.entity.User;
+import com.example.backend.domain.request.user.ReqAssignRolesToUserDTO;
 import com.example.backend.domain.request.user.ReqCreateUserDTO;
 import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
@@ -82,4 +83,16 @@ public class UserController {
         this.userService.deleteUser(id);
         return ResponseEntity.ok().build();
     }
+
+    @PutMapping("/users/{id}/assign-roles")
+    @ApiMessage("Gán danh sách role cho user")
+    public ResponseEntity<ResUserDTO> assignRoles(
+            @PathVariable Long id,
+            @Valid @RequestBody ReqAssignRolesToUserDTO req)
+            throws IdInvalidException {
+
+        return ResponseEntity.ok(
+                userService.assignRolesToUser(id, req.getRoleIds()));
+    }
+
 }

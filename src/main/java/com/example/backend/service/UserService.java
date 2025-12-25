@@ -2,7 +2,6 @@ package com.example.backend.service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -10,14 +9,18 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.request.user.ReqCreateUserDTO;
 import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
+import com.example.backend.domain.response.permission.ResPermissionDTO;
+import com.example.backend.domain.response.role.ResRoleDTO;
 import com.example.backend.domain.response.user.ResCreateUserDTO;
 import com.example.backend.domain.response.user.ResUpdateUserDTO;
 import com.example.backend.domain.response.user.ResUserDTO;
+import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.util.error.EmailInvalidException;
 import com.example.backend.util.error.IdInvalidException;
@@ -27,11 +30,13 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RoleRepository roleRepository;
 
     public UserService(UserRepository userRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder, RoleRepository roleRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.roleRepository = roleRepository;
     }
 
     public ResCreateUserDTO createUser(ReqCreateUserDTO req)
@@ -71,13 +76,18 @@ public class UserService {
         return rs;
     }
 
-    public User getUserById(Long id) throws IdInvalidException {
+    // public User getUserById(Long id) throws IdInvalidException {
 
-        Optional<User> optionalUser = this.userRepository.findById(id);
-        if (optionalUser.isPresent()) {
-            return optionalUser.get();
-        }
-        throw new IdInvalidException("Không tìm thấy User với ID = " + id);
+    // Optional<User> optionalUser = this.userRepository.findById(id);
+    // if (optionalUser.isPresent()) {
+    // return optionalUser.get();
+    // }
+    // throw new IdInvalidException("Không tìm thấy User với ID = " + id);
+    // }
+
+    public User getUserById(Long id) throws IdInvalidException {
+        return userRepository.findWithRolesAndPermissionsById(id)
+                .orElseThrow(() -> new IdInvalidException("Không tìm thấy User với ID = " + id));
     }
 
     public ResUpdateUserDTO updateUser(Long id, ReqUpdateUserDTO req)
@@ -160,6 +170,30 @@ public class UserService {
         res.setUpdatedAt(user.getUpdatedAt());
         res.setUpdatedBy(user.getUpdatedBy());
 
+        // map roles + permissions
+        res.setRoles(
+                user.getRoles().stream()
+                        .map(role -> {
+                            ResRoleDTO roleDTO = new ResRoleDTO();
+                            roleDTO.setId(role.getId());
+                            roleDTO.setName(role.getName());
+                            roleDTO.setDescription(role.getDescription());
+
+                            roleDTO.setPermissions(
+                                    role.getPermissions().stream()
+                                            .map(p -> {
+                                                ResPermissionDTO pDTO = new ResPermissionDTO();
+                                                pDTO.setId(p.getId());
+                                                pDTO.setName(p.getName());
+                                                pDTO.setDescription(p.getDescription());
+                                                return pDTO;
+                                            })
+                                            .toList());
+
+                            return roleDTO;
+                        })
+                        .toList());
+
         return res;
     }
 
@@ -197,4 +231,38 @@ public class UserService {
         return this.userRepository.save(user);
     }
 
+    // gắn role cho user
+    public ResUserDTO assignRolesToUser(
+            Long userId,
+            List<Long> roleIds) throws IdInvalidException {
+
+        // 1. Check null
+        if (roleIds == null) {
+            throw new IdInvalidException("roleIds không được null");
+        }
+
+        // 2. Check user tồn tại
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IdInvalidException("Không tìm thấy user với id = " + userId));
+
+        // 3. Clear roles
+        if (roleIds.isEmpty()) {
+            user.getRoles().clear();
+            userRepository.save(user);
+            return convertToResUserDTO(user);
+        }
+
+        // 4. Check role tồn tại
+        List<Role> roles = this.roleRepository.findAllById(roleIds);
+        if (roles.size() != roleIds.size()) {
+            throw new IdInvalidException("Có role không tồn tại");
+        }
+
+        // 5. Sync (giống Laravel sync)
+        user.getRoles().clear();
+        user.getRoles().addAll(roles);
+
+        User savedUser = userRepository.save(user);
+        return this.convertToResUserDTO(savedUser);
+    }
 }
