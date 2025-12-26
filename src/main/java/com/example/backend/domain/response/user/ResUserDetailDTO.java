@@ -3,7 +3,7 @@ package com.example.backend.domain.response.user;
 import java.time.Instant;
 import java.util.List;
 
-import com.example.backend.domain.response.role.ResRoleDTO;
+import com.example.backend.domain.response.role.ResRoleNestedDTO;
 import com.example.backend.util.constant.user.UserStatusEnum;
 
 import lombok.AllArgsConstructor;
@@ -13,8 +13,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResUserDTO {
-    
+public class ResUserDetailDTO {
     private Long id;
     private String name;
     private String fullName;
@@ -27,5 +26,5 @@ public class ResUserDTO {
     private String createdBy;
     private String updatedBy;
 
-    private List<ResRoleDTO> roles;
+    private List<ResRoleNestedDTO> roles;
 }

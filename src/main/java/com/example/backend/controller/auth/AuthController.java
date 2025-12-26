@@ -27,6 +27,8 @@ import com.example.backend.domain.response.common.MessageResponse;
 import com.example.backend.domain.response.login.JwtUserDTO;
 import com.example.backend.domain.response.login.LoginUserDTO;
 import com.example.backend.domain.response.login.ResLoginDTO;
+import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
+import com.example.backend.domain.response.role.ResRoleNestedDTO;
 import com.example.backend.service.UserService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
@@ -39,240 +41,266 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/v1")
 public class AuthController {
 
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
-    private final SecurityUtil securityUtil;
-    private final UserService userService;
-    private final PasswordEncoder passwordEncoder;
+        private final AuthenticationManagerBuilder authenticationManagerBuilder;
+        private final SecurityUtil securityUtil;
+        private final UserService userService;
+        private final PasswordEncoder passwordEncoder;
 
-    @Value("${backend.jwt.refresh-token-validity-in-second}")
-    private long refreshTokenExpiration;
+        @Value("${backend.jwt.refresh-token-validity-in-second}")
+        private long refreshTokenExpiration;
 
-    public AuthController(AuthenticationManagerBuilder authenticationManagerBuilder,
-            SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder) {
-        this.authenticationManagerBuilder = authenticationManagerBuilder;
-        this.securityUtil = securityUtil;
-        this.userService = userService;
-        this.passwordEncoder = passwordEncoder;
-    }
-
-    @PostMapping("/auth/login")
-    @ApiMessage("Đăng nhập")
-    public ResponseEntity<ResLoginDTO> login(@Valid @RequestBody ReqLoginDTO loginDto) {
-
-        // 1. Đưa username + password vào Spring Security để xác thực
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                loginDto.getUsername(),
-                loginDto.getPassword());
-
-        // 2. Gọi AuthenticationManager để xác thực
-        Authentication authentication = authenticationManagerBuilder
-                .getObject()
-                .authenticate(authenticationToken);
-
-        // 3. Lưu thông tin đăng nhập vào SecurityContext
-        // (để dùng cho các request sau)
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // 4. Chuẩn bị response trả về cho client
-        ResLoginDTO res = new ResLoginDTO();
-
-        // 5. Lấy thông tin user từ database
-        User currentUserDB = userService.handleGetUserByUsername(loginDto.getUsername());
-
-        if (currentUserDB != null) {
-
-            // 6. DTO dùng để trả về cho client (response)
-            LoginUserDTO loginUser = new LoginUserDTO(
-                    currentUserDB.getId(),
-                    currentUserDB.getEmail(),
-                    currentUserDB.getName());
-            res.setUser(loginUser);
-
-            // 7. DTO dùng để nhúng vào JWT (token)
-            // DTO này KHÔNG liên quan đến response
-            JwtUserDTO jwtUser = new JwtUserDTO(
-                    currentUserDB.getId(),
-                    currentUserDB.getEmail(),
-                    currentUserDB.getName());
-
-            // 8. Tạo access token
-            String accessToken = securityUtil.createAccessToken(
-                    authentication.getName(), // email / username
-                    jwtUser);
-
-            // 9. Tạo refresh token
-            String refreshToken = securityUtil.createRefreshToken(
-                    authentication.getName(),
-                    jwtUser);
-
-            // 10. Gắn access token vào response
-            res.setAccessToken(accessToken);
-
-            // 11. Lưu refresh token vào DB để quản lý phiên đăng nhập
-            userService.updateUserToken(refreshToken, loginDto.getUsername());
-
-            // 12. Set refresh token vào cookie (httpOnly)
-            ResponseCookie resCookies = ResponseCookie
-                    .from("refresh_token", refreshToken)
-                    .httpOnly(true)
-                    .secure(true)
-                    .path("/")
-                    .maxAge(refreshTokenExpiration)
-                    .build();
-
-            // 13. Trả response cho client
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, resCookies.toString())
-                    .body(res);
+        public AuthController(AuthenticationManagerBuilder authenticationManagerBuilder,
+                        SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder) {
+                this.authenticationManagerBuilder = authenticationManagerBuilder;
+                this.securityUtil = securityUtil;
+                this.userService = userService;
+                this.passwordEncoder = passwordEncoder;
         }
 
-        // Trường hợp không tìm thấy user (hiếm khi xảy ra)
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-    }
+        @PostMapping("/auth/login")
+        @ApiMessage("Đăng nhập")
+        public ResponseEntity<ResLoginDTO> login(@Valid @RequestBody ReqLoginDTO loginDto) {
 
-    @GetMapping("/auth/account")
-    @ApiMessage("Lấy tài khoản")
-    public ResponseEntity<ResAccountDTO> getAccount() {
-        String email = SecurityUtil.getCurrentUserLogin().isPresent()
-                ? SecurityUtil.getCurrentUserLogin().get()
-                : "";
-        User user = userService.handleGetUserByUsername(email);
+                // 1. Đưa username + password vào Spring Security để xác thực
+                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                                loginDto.getUsername(),
+                                loginDto.getPassword());
 
-        AccountUserDTO accountUser = new AccountUserDTO();
-        accountUser.setId(user.getId());
-        accountUser.setEmail(user.getEmail());
-        accountUser.setName(user.getName());
-        accountUser.setFullName(user.getFullName());
-        accountUser.setPhoneNumber(user.getPhoneNumber());
-        accountUser.setAvatarUrl(user.getAvatarUrl());
+                // 2. Gọi AuthenticationManager để xác thực
+                Authentication authentication = authenticationManagerBuilder
+                                .getObject()
+                                .authenticate(authenticationToken);
 
-        ResAccountDTO res = new ResAccountDTO();
-        res.setUser(accountUser);
+                // 3. Lưu thông tin đăng nhập vào SecurityContext
+                // (để dùng cho các request sau)
+                SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        return ResponseEntity.ok(res);
-    }
+                // 4. Chuẩn bị response trả về cho client
+                ResLoginDTO res = new ResLoginDTO();
 
-    @GetMapping("/auth/refresh")
-    @ApiMessage("Lấy refresh_token của người dùng")
-    public ResponseEntity<ResLoginDTO> getRefreshToken(
-            @CookieValue(name = "refresh_token", defaultValue = "abc") String refreshToken)
-            throws IdInvalidException {
+                // 5. Lấy thông tin user từ database
+                User currentUserDB = userService.handleGetUserByUsername(loginDto.getUsername());
 
-        // 1. Không có refresh token trong cookie
-        if ("abc".equals(refreshToken)) {
-            throw new IdInvalidException("Bạn không có refresh token ở cookie");
+                if (currentUserDB != null) {
+
+                        // 6. DTO dùng để trả về cho client (response)
+                        LoginUserDTO loginUser = new LoginUserDTO(
+                                        currentUserDB.getId(),
+                                        currentUserDB.getEmail(),
+                                        currentUserDB.getName());
+                        res.setUser(loginUser);
+
+                        // 7. DTO dùng để nhúng vào JWT (token)
+                        // DTO này KHÔNG liên quan đến response
+                        JwtUserDTO jwtUser = new JwtUserDTO(
+                                        currentUserDB.getId(),
+                                        currentUserDB.getEmail(),
+                                        currentUserDB.getName());
+
+                        // 8. Tạo access token
+                        String accessToken = securityUtil.createAccessToken(
+                                        authentication.getName(), // email / username
+                                        jwtUser);
+
+                        // 9. Tạo refresh token
+                        String refreshToken = securityUtil.createRefreshToken(
+                                        authentication.getName(),
+                                        jwtUser);
+
+                        // 10. Gắn access token vào response
+                        res.setAccessToken(accessToken);
+
+                        // 11. Lưu refresh token vào DB để quản lý phiên đăng nhập
+                        userService.updateUserToken(refreshToken, loginDto.getUsername());
+
+                        // 12. Set refresh token vào cookie (httpOnly)
+                        ResponseCookie resCookies = ResponseCookie
+                                        .from("refresh_token", refreshToken)
+                                        .httpOnly(true)
+                                        .secure(true)
+                                        .path("/")
+                                        .maxAge(refreshTokenExpiration)
+                                        .build();
+
+                        // 13. Trả response cho client
+                        return ResponseEntity.ok()
+                                        .header(HttpHeaders.SET_COOKIE, resCookies.toString())
+                                        .body(res);
+                }
+
+                // Trường hợp không tìm thấy user (hiếm khi xảy ra)
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // 2. Kiểm tra refresh token có hợp lệ (chữ ký, hết hạn…)
-        Jwt decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
+        @GetMapping("/auth/account")
+        @ApiMessage("Lấy tài khoản")
+        public ResponseEntity<ResAccountDTO> getAccount() {
+                String email = SecurityUtil.getCurrentUserLogin().isPresent()
+                                ? SecurityUtil.getCurrentUserLogin().get()
+                                : "";
+                User user = userService.handleGetUserByUsername(email);
 
-        // 3. Lấy email (subject) từ token
-        String email = decodedToken.getSubject();
+                AccountUserDTO accountUser = new AccountUserDTO();
+                accountUser.setId(user.getId());
+                accountUser.setName(user.getName());
+                accountUser.setFullName(user.getFullName());
+                accountUser.setEmail(user.getEmail());
+                accountUser.setPhoneNumber(user.getPhoneNumber());
+                accountUser.setAvatarUrl(user.getAvatarUrl());
 
-        // 4. Kiểm tra refresh token này có khớp với DB không
-        // → tránh trường hợp token cũ / token bị đánh cắp
-        User currentUser = userService.getUserByRefreshTokenAndEmail(refreshToken, email);
-        if (currentUser == null) {
-            throw new IdInvalidException("Refresh Token không hợp lệ");
+                // map roles + permissions
+                accountUser.setRoles(
+                                user.getRoles().stream()
+                                                .map(role -> {
+                                                        ResRoleNestedDTO roleDTO = new ResRoleNestedDTO();
+                                                        roleDTO.setId(role.getId());
+                                                        roleDTO.setName(role.getName());
+                                                        roleDTO.setDescription(role.getDescription());
+
+                                                        roleDTO.setPermissions(
+                                                                        role.getPermissions().stream()
+                                                                                        .map(p -> {
+                                                                                                ResPermissionNestedDTO pDTO = new ResPermissionNestedDTO();
+                                                                                                pDTO.setId(p.getId());
+                                                                                                pDTO.setName(p.getName());
+                                                                                                pDTO.setDescription(p
+                                                                                                                .getDescription());
+                                                                                                return pDTO;
+                                                                                        })
+                                                                                        .toList());
+
+                                                        return roleDTO;
+                                                })
+                                                .toList());
+
+                ResAccountDTO res = new ResAccountDTO();
+                res.setUser(accountUser);
+
+                return ResponseEntity.ok(res);
         }
 
-        // 5. Chuẩn bị response
-        ResLoginDTO res = new ResLoginDTO();
+        @GetMapping("/auth/refresh")
+        @ApiMessage("Lấy refresh_token của người dùng")
+        public ResponseEntity<ResLoginDTO> getRefreshToken(
+                        @CookieValue(name = "refresh_token", defaultValue = "abc") String refreshToken)
+                        throws IdInvalidException {
 
-        // 6. Lấy lại user từ DB (để đảm bảo dữ liệu mới nhất)
-        User currentUserDB = userService.handleGetUserByUsername(email);
+                // 1. Không có refresh token trong cookie
+                if ("abc".equals(refreshToken)) {
+                        throw new IdInvalidException("Bạn không có refresh token ở cookie");
+                }
 
-        if (currentUserDB != null) {
+                // 2. Kiểm tra refresh token có hợp lệ (chữ ký, hết hạn…)
+                Jwt decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
 
-            // 7. DTO trả về cho client
-            LoginUserDTO loginUser = new LoginUserDTO(
-                    currentUserDB.getId(),
-                    currentUserDB.getEmail(),
-                    currentUserDB.getName());
-            res.setUser(loginUser);
+                // 3. Lấy email (subject) từ token
+                String email = decodedToken.getSubject();
 
-            // 8. DTO nhúng vào JWT
-            JwtUserDTO jwtUser = new JwtUserDTO(
-                    currentUserDB.getId(),
-                    currentUserDB.getEmail(),
-                    currentUserDB.getName());
+                // 4. Kiểm tra refresh token này có khớp với DB không
+                // → tránh trường hợp token cũ / token bị đánh cắp
+                User currentUser = userService.getUserByRefreshTokenAndEmail(refreshToken, email);
+                if (currentUser == null) {
+                        throw new IdInvalidException("Refresh Token không hợp lệ");
+                }
 
-            // 9. Tạo access token mới
-            String newAccessToken = securityUtil.createAccessToken(
-                    email,
-                    jwtUser);
-            res.setAccessToken(newAccessToken);
+                // 5. Chuẩn bị response
+                ResLoginDTO res = new ResLoginDTO();
 
-            // 10. Tạo refresh token mới
-            String newRefreshToken = securityUtil.createRefreshToken(
-                    email,
-                    jwtUser);
+                // 6. Lấy lại user từ DB (để đảm bảo dữ liệu mới nhất)
+                User currentUserDB = userService.handleGetUserByUsername(email);
 
-            // 11. Cập nhật refresh token mới vào DB
-            userService.updateUserToken(newRefreshToken, email);
+                if (currentUserDB != null) {
 
-            // 12. Set refresh token mới vào cookie
-            ResponseCookie resCookies = ResponseCookie
-                    .from("refresh_token", newRefreshToken)
-                    .httpOnly(true)
-                    .secure(true)
-                    .path("/")
-                    .maxAge(refreshTokenExpiration)
-                    .build();
+                        // 7. DTO trả về cho client
+                        LoginUserDTO loginUser = new LoginUserDTO(
+                                        currentUserDB.getId(),
+                                        currentUserDB.getEmail(),
+                                        currentUserDB.getName());
+                        res.setUser(loginUser);
 
-            // 13. Trả response
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.SET_COOKIE, resCookies.toString())
-                    .body(res);
+                        // 8. DTO nhúng vào JWT
+                        JwtUserDTO jwtUser = new JwtUserDTO(
+                                        currentUserDB.getId(),
+                                        currentUserDB.getEmail(),
+                                        currentUserDB.getName());
+
+                        // 9. Tạo access token mới
+                        String newAccessToken = securityUtil.createAccessToken(
+                                        email,
+                                        jwtUser);
+                        res.setAccessToken(newAccessToken);
+
+                        // 10. Tạo refresh token mới
+                        String newRefreshToken = securityUtil.createRefreshToken(
+                                        email,
+                                        jwtUser);
+
+                        // 11. Cập nhật refresh token mới vào DB
+                        userService.updateUserToken(newRefreshToken, email);
+
+                        // 12. Set refresh token mới vào cookie
+                        ResponseCookie resCookies = ResponseCookie
+                                        .from("refresh_token", newRefreshToken)
+                                        .httpOnly(true)
+                                        .secure(true)
+                                        .path("/")
+                                        .maxAge(refreshTokenExpiration)
+                                        .build();
+
+                        // 13. Trả response
+                        return ResponseEntity.ok()
+                                        .header(HttpHeaders.SET_COOKIE, resCookies.toString())
+                                        .body(res);
+                }
+
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-    }
+        @PostMapping("/auth/logout")
+        @ApiMessage("Đăng xuất")
+        public ResponseEntity<Void> logout() throws IdInvalidException {
 
-    @PostMapping("/auth/logout")
-    @ApiMessage("Đăng xuất")
-    public ResponseEntity<Void> logout() throws IdInvalidException {
+                // 1. Lấy email từ access token
+                String email = SecurityUtil.getCurrentUserLogin()
+                                .orElseThrow(() -> new IdInvalidException("Access Token không hợp lệ"));
 
-        // 1. Lấy email từ access token
-        String email = SecurityUtil.getCurrentUserLogin()
-                .orElseThrow(() -> new IdInvalidException("Access Token không hợp lệ"));
+                // 2. Xóa refresh token trong DB
+                // → logout tất cả session của user
+                userService.updateUserToken(null, email);
 
-        // 2. Xóa refresh token trong DB
-        // → logout tất cả session của user
-        userService.updateUserToken(null, email);
+                // 3. Xóa refresh token trong cookie
+                ResponseCookie deleteCookie = ResponseCookie
+                                .from("refresh_token", "")
+                                .httpOnly(true)
+                                .secure(true)
+                                .path("/")
+                                .maxAge(0)
+                                .build();
 
-        // 3. Xóa refresh token trong cookie
-        ResponseCookie deleteCookie = ResponseCookie
-                .from("refresh_token", "")
-                .httpOnly(true)
-                .secure(true)
-                .path("/")
-                .maxAge(0)
-                .build();
-
-        // 4. Trả response
-        return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
-                .build();
-    }
-
-    @PostMapping("/auth/register")
-    @ApiMessage("Đăng ký tài khoản")
-    public ResponseEntity<MessageResponse> register(@Valid @RequestBody ReqRegisterDTO dto)
-            throws EmailInvalidException {
-
-        User user = this.userService.convertToReqRegisterDTO(dto);
-
-        boolean isEmailExists = this.userService.isEmailExists(user.getEmail());
-        if (isEmailExists) {
-            throw new EmailInvalidException("Email: " + user.getEmail() + " đã tồn tại");
+                // 4. Trả response
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                                .build();
         }
-        // hardpasswd
-        String hardPassword = this.passwordEncoder.encode(dto.getPassword());
-        user.setPassword(hardPassword);
-        this.userService.createUserForRegister(user);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(new MessageResponse("Đăng ký tài khoản thành công"));
-    }
+        @PostMapping("/auth/register")
+        @ApiMessage("Đăng ký tài khoản")
+        public ResponseEntity<MessageResponse> register(@Valid @RequestBody ReqRegisterDTO dto)
+                        throws EmailInvalidException {
+
+                User user = this.userService.convertToReqRegisterDTO(dto);
+
+                boolean isEmailExists = this.userService.isEmailExists(user.getEmail());
+                if (isEmailExists) {
+                        throw new EmailInvalidException("Email: " + user.getEmail() + " đã tồn tại");
+                }
+                // hardpasswd
+                String hardPassword = this.passwordEncoder.encode(dto.getPassword());
+                user.setPassword(hardPassword);
+                this.userService.createUserForRegister(user);
+
+                return ResponseEntity.status(HttpStatus.CREATED)
+                                .body(new MessageResponse("Đăng ký tài khoản thành công"));
+        }
 
 }

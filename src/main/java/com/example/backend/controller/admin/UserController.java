@@ -13,7 +13,8 @@ import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.user.ResCreateUserDTO;
 import com.example.backend.domain.response.user.ResUpdateUserDTO;
-import com.example.backend.domain.response.user.ResUserDTO;
+import com.example.backend.domain.response.user.ResUserDetailDTO;
+import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.service.UserService;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.error.EmailInvalidException;
@@ -54,13 +55,13 @@ public class UserController {
 
     @GetMapping("/users/{id}")
     @ApiMessage("Lấy thông tin người dùng theo ID")
-    public ResponseEntity<ResUserDTO> getUserById(
+    public ResponseEntity<ResUserDetailDTO> getUserById(
             @PathVariable("id") Long id)
             throws IdInvalidException {
 
         User user = this.userService.getUserById(id);
         return ResponseEntity.ok(
-                this.userService.convertToResUserDTO(user));
+                this.userService.convertToResUserDetailDTO(user));
     }
 
     @PutMapping("/users/{id}")
@@ -86,7 +87,7 @@ public class UserController {
 
     @PutMapping("/users/{id}/assign-roles")
     @ApiMessage("Gán danh sách role cho user")
-    public ResponseEntity<ResUserDTO> assignRoles(
+    public ResponseEntity<ResUserListDTO> assignRoles(
             @PathVariable Long id,
             @Valid @RequestBody ReqAssignRolesToUserDTO req)
             throws IdInvalidException {

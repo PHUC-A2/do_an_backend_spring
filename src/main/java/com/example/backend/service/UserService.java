@@ -15,11 +15,12 @@ import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.request.user.ReqCreateUserDTO;
 import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
-import com.example.backend.domain.response.permission.ResPermissionDTO;
-import com.example.backend.domain.response.role.ResRoleDTO;
+import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
+import com.example.backend.domain.response.role.ResRoleNestedDTO;
 import com.example.backend.domain.response.user.ResCreateUserDTO;
 import com.example.backend.domain.response.user.ResUpdateUserDTO;
-import com.example.backend.domain.response.user.ResUserDTO;
+import com.example.backend.domain.response.user.ResUserDetailDTO;
+import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.util.error.EmailInvalidException;
@@ -67,9 +68,9 @@ public class UserService {
 
         rs.setMeta(meta);
 
-        List<ResUserDTO> resList = new ArrayList<>();
+        List<ResUserListDTO> resList = new ArrayList<>();
         for (User user : pageUser.getContent()) {
-            resList.add(this.convertToResUserDTO(user));
+            resList.add(this.convertToResUserListDTO(user));
         }
 
         rs.setResult(resList);
@@ -155,9 +156,9 @@ public class UserService {
     }
 
     // entity -> res get
-    public ResUserDTO convertToResUserDTO(User user) {
+    public ResUserListDTO convertToResUserListDTO(User user) {
 
-        ResUserDTO res = new ResUserDTO();
+        ResUserListDTO res = new ResUserListDTO();
         res.setId(user.getId());
         res.setName(user.getName());
         res.setFullName(user.getFullName());
@@ -174,26 +175,50 @@ public class UserService {
         res.setRoles(
                 user.getRoles().stream()
                         .map(role -> {
-                            ResRoleDTO roleDTO = new ResRoleDTO();
+                            ResRoleNestedDTO roleDTO = new ResRoleNestedDTO();
                             roleDTO.setId(role.getId());
                             roleDTO.setName(role.getName());
                             roleDTO.setDescription(role.getDescription());
-                            roleDTO.setCreatedAt(role.getCreatedAt());
-                            roleDTO.setCreatedBy(role.getCreatedBy());
-                            roleDTO.setUpdatedAt(role.getUpdatedAt());
-                            roleDTO.setUpdatedBy(role.getUpdatedBy());
+
+                            return roleDTO;
+                        })
+                        .toList());
+
+        return res;
+    }
+
+    // entity -> res get
+    public ResUserDetailDTO convertToResUserDetailDTO(User user) {
+
+        ResUserDetailDTO res = new ResUserDetailDTO();
+        res.setId(user.getId());
+        res.setName(user.getName());
+        res.setFullName(user.getFullName());
+        res.setEmail(user.getEmail());
+        res.setPhoneNumber(user.getPhoneNumber());
+        res.setAvatarUrl(user.getAvatarUrl());
+        res.setStatus(user.getStatus());
+        res.setCreatedAt(user.getCreatedAt());
+        res.setCreatedBy(user.getCreatedBy());
+        res.setUpdatedAt(user.getUpdatedAt());
+        res.setUpdatedBy(user.getUpdatedBy());
+
+        // map roles + permissions
+        res.setRoles(
+                user.getRoles().stream()
+                        .map(role -> {
+                            ResRoleNestedDTO roleDTO = new ResRoleNestedDTO();
+                            roleDTO.setId(role.getId());
+                            roleDTO.setName(role.getName());
+                            roleDTO.setDescription(role.getDescription());
 
                             roleDTO.setPermissions(
                                     role.getPermissions().stream()
                                             .map(p -> {
-                                                ResPermissionDTO pDTO = new ResPermissionDTO();
+                                                ResPermissionNestedDTO pDTO = new ResPermissionNestedDTO();
                                                 pDTO.setId(p.getId());
                                                 pDTO.setName(p.getName());
                                                 pDTO.setDescription(p.getDescription());
-                                                pDTO.setCreatedAt(p.getCreatedAt());
-                                                pDTO.setCreatedBy(p.getCreatedBy());
-                                                pDTO.setUpdatedAt(p.getUpdatedAt());
-                                                pDTO.setUpdatedBy(p.getUpdatedBy());
                                                 return pDTO;
                                             })
                                             .toList());
@@ -240,7 +265,7 @@ public class UserService {
     }
 
     // gắn role cho user
-    public ResUserDTO assignRolesToUser(
+    public ResUserListDTO assignRolesToUser(
             Long userId,
             List<Long> roleIds) throws IdInvalidException {
 
@@ -257,7 +282,7 @@ public class UserService {
         if (roleIds.isEmpty()) {
             user.getRoles().clear();
             userRepository.save(user);
-            return convertToResUserDTO(user);
+            return convertToResUserListDTO(user);
         }
 
         // 4. Check role tồn tại
@@ -271,6 +296,6 @@ public class UserService {
         user.getRoles().addAll(roles);
 
         User savedUser = userRepository.save(user);
-        return this.convertToResUserDTO(savedUser);
+        return this.convertToResUserListDTO(savedUser);
     }
 }

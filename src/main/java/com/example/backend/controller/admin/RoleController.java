@@ -19,7 +19,8 @@ import com.example.backend.domain.request.role.ReqCreateRoleDTO;
 import com.example.backend.domain.request.role.ReqUpdateRoleDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.role.ResCreateRoleDTO;
-import com.example.backend.domain.response.role.ResRoleDTO;
+import com.example.backend.domain.response.role.ResRoleDetailDTO;
+import com.example.backend.domain.response.role.ResRoleListDTO;
 import com.example.backend.domain.response.role.ResUpdateRoleDTO;
 import com.example.backend.service.RoleService;
 import com.example.backend.util.annotation.ApiMessage;
@@ -56,9 +57,9 @@ public class RoleController {
 
     @GetMapping("/roles/{id}")
     @ApiMessage("Lấy thông tin vai trò theo ID")
-    public ResponseEntity<ResRoleDTO> getRoleById(@PathVariable("id") Long id) throws IdInvalidException {
+    public ResponseEntity<ResRoleDetailDTO> getRoleById(@PathVariable("id") Long id) throws IdInvalidException {
         Role role = this.roleService.getRoleById(id);
-        return ResponseEntity.ok(this.roleService.convertToResRoleDTO(role));
+        return ResponseEntity.ok(this.roleService.convertToResRoleDetailsDTO(role));
     }
 
     @PutMapping("/roles/{id}")
@@ -80,7 +81,7 @@ public class RoleController {
 
     @PutMapping("/roles/{id}/assign-permissions")
     @ApiMessage("Gán danh sách permission cho role")
-    public ResponseEntity<ResRoleDTO> assignPermissions(
+    public ResponseEntity<ResRoleListDTO> assignPermissions(
             @PathVariable Long id,
             @Valid @RequestBody ReqAssignPermissionsToRoleDTO req) throws IdInvalidException {
 

@@ -13,9 +13,10 @@ import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.request.role.ReqCreateRoleDTO;
 import com.example.backend.domain.request.role.ReqUpdateRoleDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
-import com.example.backend.domain.response.permission.ResPermissionDTO;
+import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResCreateRoleDTO;
-import com.example.backend.domain.response.role.ResRoleDTO;
+import com.example.backend.domain.response.role.ResRoleDetailDTO;
+import com.example.backend.domain.response.role.ResRoleListDTO;
 import com.example.backend.domain.response.role.ResUpdateRoleDTO;
 import com.example.backend.repository.PermissionRepository;
 import com.example.backend.repository.RoleRepository;
@@ -59,9 +60,9 @@ public class RoleService {
 
         rs.setMeta(mt);
 
-        List<ResRoleDTO> resList = new ArrayList<>();
+        List<ResRoleListDTO> resList = new ArrayList<>();
         for (Role role : pageRole.getContent()) {
-            resList.add(this.convertToResRoleDTO(role));
+            resList.add(this.convertToResRoleListDTO(role));
         }
 
         rs.setResult(resList);
@@ -117,9 +118,25 @@ public class RoleService {
     }
 
     // entity -> res get
-    public ResRoleDTO convertToResRoleDTO(Role role) {
+    public ResRoleListDTO convertToResRoleListDTO(Role role) {
 
-        ResRoleDTO res = new ResRoleDTO();
+        ResRoleListDTO res = new ResRoleListDTO();
+
+        res.setId(role.getId());
+        res.setName(role.getName());
+        res.setDescription(role.getDescription());
+        res.setCreatedAt(role.getCreatedAt());
+        res.setCreatedBy(role.getCreatedBy());
+        res.setUpdatedAt(role.getUpdatedAt());
+        res.setUpdatedBy(role.getUpdatedBy());
+
+        return res;
+    }
+
+    // entity -> res get details
+    public ResRoleDetailDTO convertToResRoleDetailsDTO(Role role) {
+
+        ResRoleDetailDTO res = new ResRoleDetailDTO();
 
         res.setId(role.getId());
         res.setName(role.getName());
@@ -134,14 +151,10 @@ public class RoleService {
                 role.getPermissions()
                         .stream()
                         .map(p -> {
-                            ResPermissionDTO dto = new ResPermissionDTO();
+                            ResPermissionNestedDTO dto = new ResPermissionNestedDTO();
                             dto.setId(p.getId());
                             dto.setName(p.getName());
                             dto.setDescription(p.getDescription());
-                            dto.setCreatedAt(p.getCreatedAt());
-                            dto.setCreatedBy(p.getCreatedBy());
-                            dto.setUpdatedAt(p.getUpdatedAt());
-                            dto.setUpdatedBy(p.getUpdatedBy());
                             return dto;
                         })
                         .toList());
@@ -174,7 +187,7 @@ public class RoleService {
     }
 
     // gắn permisison cho role
-    public ResRoleDTO assignPermissionsToRole(
+    public ResRoleListDTO assignPermissionsToRole(
             Long roleId,
             List<Long> permissionIds) throws IdInvalidException {
 
@@ -190,7 +203,7 @@ public class RoleService {
         if (permissionIds.isEmpty()) {
             role.getPermissions().clear();
             roleRepository.save(role);
-            return convertToResRoleDTO(role);
+            return convertToResRoleListDTO(role);
         }
 
         // 4. Check permission tồn tại
@@ -205,7 +218,7 @@ public class RoleService {
         role.getPermissions().addAll(permissions);
 
         Role savedRole = roleRepository.save(role);
-        return convertToResRoleDTO(savedRole);
+        return convertToResRoleListDTO(savedRole);
     }
 
 }
