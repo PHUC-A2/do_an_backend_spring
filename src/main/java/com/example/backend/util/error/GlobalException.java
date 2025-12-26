@@ -115,4 +115,15 @@ public class GlobalException {
         res.setMessage("Email hoặc mật khẩu không đúng");
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(res);
     }
+
+    // BadRequestException
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<RestResponse<Object>> handleBadRequest(BadRequestException ex) {
+        RestResponse<Object> res = new RestResponse<>();
+        res.setStatusCode(HttpStatus.BAD_REQUEST.value());
+        res.setError("Yêu cầu không hợp lệ");
+        res.setMessage(ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    }
+
 }

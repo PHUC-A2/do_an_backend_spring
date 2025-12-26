@@ -49,7 +49,7 @@ public class Booking {
     private LocalDateTime endDateTime;
 
     @Enumerated(EnumType.STRING)
-    private ShirtOptionEnum shirtOption;
+    private ShirtOptionEnum shirtOption = ShirtOptionEnum.WITHOUT_PITCH_SHIRT;
 
     private String contactPhone;
 
