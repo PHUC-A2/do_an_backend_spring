@@ -178,6 +178,10 @@ public class UserService {
                             roleDTO.setId(role.getId());
                             roleDTO.setName(role.getName());
                             roleDTO.setDescription(role.getDescription());
+                            roleDTO.setCreatedAt(role.getCreatedAt());
+                            roleDTO.setCreatedBy(role.getCreatedBy());
+                            roleDTO.setUpdatedAt(role.getUpdatedAt());
+                            roleDTO.setUpdatedBy(role.getUpdatedBy());
 
                             roleDTO.setPermissions(
                                     role.getPermissions().stream()
@@ -186,6 +190,10 @@ public class UserService {
                                                 pDTO.setId(p.getId());
                                                 pDTO.setName(p.getName());
                                                 pDTO.setDescription(p.getDescription());
+                                                pDTO.setCreatedAt(p.getCreatedAt());
+                                                pDTO.setCreatedBy(p.getCreatedBy());
+                                                pDTO.setUpdatedAt(p.getUpdatedAt());
+                                                pDTO.setUpdatedBy(p.getUpdatedBy());
                                                 return pDTO;
                                             })
                                             .toList());

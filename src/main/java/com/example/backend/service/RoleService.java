@@ -138,6 +138,10 @@ public class RoleService {
                             dto.setId(p.getId());
                             dto.setName(p.getName());
                             dto.setDescription(p.getDescription());
+                            dto.setCreatedAt(p.getCreatedAt());
+                            dto.setCreatedBy(p.getCreatedBy());
+                            dto.setUpdatedAt(p.getUpdatedAt());
+                            dto.setUpdatedBy(p.getUpdatedBy());
                             return dto;
                         })
                         .toList());
