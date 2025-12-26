@@ -1,79 +1,64 @@
 package com.example.backend.domain.entity;
 
-import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
 
 import com.example.backend.util.SecurityUtil;
-import com.example.backend.util.constant.pitch.PitchStatusEnum;
-import com.example.backend.util.constant.pitch.PitchTypeEnum;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.example.backend.util.constant.booking.ShirtOptionEnum;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "pitches")
+@Table(name = "bookings")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Pitch {
+public class Booking {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(nullable = false)
-    private String name;
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "pitch_id", nullable = false)
+    private Pitch pitch;
+
+    private LocalDateTime startDateTime;
+    private LocalDateTime endDateTime;
 
     @Enumerated(EnumType.STRING)
-    private PitchTypeEnum pitchType = PitchTypeEnum.SEVEN;
+    private ShirtOptionEnum shirtOption;
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal pricePerHour;
-
-    private String pitchUrl;
-
-    // lấy giờ ko lấy ngày
-    private LocalTime openTime;
-    private LocalTime closeTime;
-
-    private boolean open24h;
-
-    @Enumerated(EnumType.STRING)
-    private PitchStatusEnum status = PitchStatusEnum.ACTIVE;
-
-    private String address;
-
-    @OneToMany(mappedBy = "pitch", fetch = FetchType.LAZY)
-    @JsonIgnore
-    private List<Booking> bookings = new ArrayList<>();
+    private String contactPhone;
 
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;
     private String updatedBy;
 
+    // dùng để cập nhật người tạo ra người dùng
     @PrePersist
     public void handleBeforeCreate() {
         this.createdBy = SecurityUtil.getCurrentUserLogin().orElse("");
