@@ -1,7 +1,9 @@
 package com.example.backend.service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,6 +52,14 @@ public class UserService {
 
         User user = this.convertToReqCreateUser(req);
         user.setPassword(passwordEncoder.encode(req.getPassword()));
+
+        // Lấy role VIEW và gắn mặc định
+                Role viewRole = this.roleRepository.findByName("VIEW");
+                if (viewRole != null) {
+                        Set<Role> roles = new HashSet<>();
+                        roles.add(viewRole);
+                        user.setRoles(roles);
+                }
 
         User savedUser = this.userRepository.save(user);
         return this.convertToResCreateUserDTO(savedUser);

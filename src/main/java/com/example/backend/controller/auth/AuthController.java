@@ -1,6 +1,8 @@
 package com.example.backend.controller.auth;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.auth.ReqLoginDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
@@ -31,6 +34,7 @@ import com.example.backend.domain.response.login.LoginUserDTO;
 import com.example.backend.domain.response.login.ResLoginDTO;
 import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
+import com.example.backend.repository.RoleRepository;
 import com.example.backend.service.UserService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
@@ -47,16 +51,18 @@ public class AuthController {
         private final SecurityUtil securityUtil;
         private final UserService userService;
         private final PasswordEncoder passwordEncoder;
+        private final RoleRepository roleRepository;
 
         @Value("${backend.jwt.refresh-token-validity-in-second}")
         private long refreshTokenExpiration;
 
         public AuthController(AuthenticationManagerBuilder authenticationManagerBuilder,
-                        SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder) {
+                        SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder, RoleRepository roleRepository) {
                 this.authenticationManagerBuilder = authenticationManagerBuilder;
                 this.securityUtil = securityUtil;
                 this.userService = userService;
                 this.passwordEncoder = passwordEncoder;
+                this.roleRepository = roleRepository;
         }
 
         @PostMapping("/auth/login")
@@ -169,27 +175,28 @@ public class AuthController {
 
                 // map roles + permissions
                 accountUser.setRoles(
-                user.getRoles().stream()
-                        .map(role -> {
-                            ResRoleNestedDetailDTO roleDTO = new ResRoleNestedDetailDTO();
-                            roleDTO.setId(role.getId());
-                            roleDTO.setName(role.getName());
-                            roleDTO.setDescription(role.getDescription());
+                                user.getRoles().stream()
+                                                .map(role -> {
+                                                        ResRoleNestedDetailDTO roleDTO = new ResRoleNestedDetailDTO();
+                                                        roleDTO.setId(role.getId());
+                                                        roleDTO.setName(role.getName());
+                                                        roleDTO.setDescription(role.getDescription());
 
-                            roleDTO.setPermissions(
-                                    role.getPermissions().stream()
-                                            .map(p -> {
-                                                ResPermissionNestedDTO pDTO = new ResPermissionNestedDTO();
-                                                pDTO.setId(p.getId());
-                                                pDTO.setName(p.getName());
-                                                pDTO.setDescription(p.getDescription());
-                                                return pDTO;
-                                            })
-                                            .toList());
+                                                        roleDTO.setPermissions(
+                                                                        role.getPermissions().stream()
+                                                                                        .map(p -> {
+                                                                                                ResPermissionNestedDTO pDTO = new ResPermissionNestedDTO();
+                                                                                                pDTO.setId(p.getId());
+                                                                                                pDTO.setName(p.getName());
+                                                                                                pDTO.setDescription(p
+                                                                                                                .getDescription());
+                                                                                                return pDTO;
+                                                                                        })
+                                                                                        .toList());
 
-                            return roleDTO;
-                        })
-                        .toList());
+                                                        return roleDTO;
+                                                })
+                                                .toList());
 
                 ResAccountDTO res = new ResAccountDTO();
                 res.setUser(accountUser);
@@ -332,6 +339,15 @@ public class AuthController {
                 // hardpasswd
                 String hardPassword = this.passwordEncoder.encode(dto.getPassword());
                 user.setPassword(hardPassword);
+
+                // Lấy role VIEW và gắn mặc định
+                Role viewRole = this.roleRepository.findByName("VIEW");
+                if (viewRole != null) {
+                        Set<Role> roles = new HashSet<>();
+                        roles.add(viewRole);
+                        user.setRoles(roles);
+                }
+                
                 this.userService.createUserForRegister(user);
 
                 return ResponseEntity.status(HttpStatus.CREATED)
