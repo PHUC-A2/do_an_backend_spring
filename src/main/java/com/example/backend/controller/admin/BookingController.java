@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.backend.domain.entity.Booking;
@@ -34,6 +35,7 @@ public class BookingController {
     // Create booking
     @PostMapping("/bookings")
     @ApiMessage("Đặt lịch")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_CREATE')")
     public ResponseEntity<ResCreateBookingDTO> createBooking(
             @Valid @RequestBody ReqCreateBookingDTO req) throws BadRequestException, IdInvalidException {
 
@@ -49,6 +51,7 @@ public class BookingController {
     // Get all bookings (pagination + filter)
     @GetMapping("/bookings")
     @ApiMessage("Lấy danh sách đặt lịch sân")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllBookings(
             @Filter Specification<Booking> spec,
             Pageable pageable) {
@@ -59,6 +62,7 @@ public class BookingController {
     // Get booking by ID
     @GetMapping("/bookings/{id}")
     @ApiMessage("Lấy thông tin đặt lịch theo ID")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_VIEW_DETAIL')")
     public ResponseEntity<ResBookingDTO> getBookingById(@PathVariable Long id) throws IdInvalidException {
         Booking booking = this.bookingService.getBookingById(id);
         ResBookingDTO res = this.bookingService.convertToResBookingDTO(booking);
@@ -68,6 +72,7 @@ public class BookingController {
     // Update booking
     @PutMapping("/bookings/{id}")
     @ApiMessage("Cập nhật thông tin đặt lịch")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_UPDATE')")
     public ResponseEntity<ResUpdateBookingDTO> updateBooking(
             @PathVariable Long id,
             @Valid @RequestBody ReqUpdateBookingDTO req) throws IdInvalidException {
@@ -84,6 +89,7 @@ public class BookingController {
     // Delete booking
     @DeleteMapping("/bookings/{id}")
     @ApiMessage("Xóa đặt lịch")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_DELETE')")
     public ResponseEntity<Void> deleteBooking(@PathVariable Long id) throws IdInvalidException {
         this.bookingService.deleteBooking(id);
         return ResponseEntity.ok().build();

@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,6 +40,7 @@ public class PitchController {
 
     @PostMapping("/pitches")
     @ApiMessage("Tạo sân mới")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_CREATE')")
     public ResponseEntity<ResCreatePitchDTO> createPitch(
             @Valid @RequestBody ReqCreatePitchDTO dto) {
 
@@ -48,6 +50,7 @@ public class PitchController {
 
     @GetMapping("/pitches")
     @ApiMessage("Lấy danh sách sân")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllPitches(
             @Filter Specification<Pitch> spec,
             Pageable pageable) {
@@ -58,6 +61,7 @@ public class PitchController {
 
     @GetMapping("/pitches/{id}")
     @ApiMessage("Lấy thông tin sân theo ID")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_DETAIL')")
     public ResponseEntity<ResPitchDTO> getPitchById(
             @PathVariable("id") Long id)
             throws IdInvalidException {
@@ -69,6 +73,7 @@ public class PitchController {
 
     @PutMapping("/pitches/{id}")
     @ApiMessage("Cập nhật thông tin sân")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_UPDATE')")
     public ResponseEntity<ResUpdatePitchDTO> updatePitch(
             @PathVariable("id") Long id,
             @Valid @RequestBody ReqUpdatePitchDTO dto)
@@ -80,6 +85,7 @@ public class PitchController {
 
     @DeleteMapping("/pitches/{id}")
     @ApiMessage("Xóa sân")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_DELETE')")
     public ResponseEntity<Void> deletePitch(
             @PathVariable("id") Long id)
             throws IdInvalidException {

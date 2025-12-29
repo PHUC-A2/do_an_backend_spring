@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,6 +43,7 @@ public class RoleController {
 
     @PostMapping("/roles")
     @ApiMessage("Tạo vai trò mới")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_CREATE')")
     public ResponseEntity<ResCreateRoleDTO> createRole(@Valid @RequestBody ReqCreateRoleDTO dto)
             throws NameInvalidException {
         ResCreateRoleDTO res = this.roleService.createRole(dto);
@@ -50,6 +52,7 @@ public class RoleController {
 
     @GetMapping("/roles")
     @ApiMessage("Lấy danh sách tất cả vai trò")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllRoles(
             @Filter Specification<Role> spec, Pageable pageable) {
         return ResponseEntity.ok(this.roleService.getAllRoles(spec, pageable));
@@ -57,6 +60,7 @@ public class RoleController {
 
     @GetMapping("/roles/{id}")
     @ApiMessage("Lấy thông tin vai trò theo ID")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_VIEW_DETAIL')")
     public ResponseEntity<ResRoleDetailDTO> getRoleById(@PathVariable("id") Long id) throws IdInvalidException {
         Role role = this.roleService.getRoleById(id);
         return ResponseEntity.ok(this.roleService.convertToResRoleDetailsDTO(role));
@@ -64,6 +68,7 @@ public class RoleController {
 
     @PutMapping("/roles/{id}")
     @ApiMessage("Cập nhật thông tin vai trò")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_UPDATE')")
     public ResponseEntity<ResUpdateRoleDTO> updateRole(@PathVariable("id") Long id,
             @Valid @RequestBody ReqUpdateRoleDTO dto)
             throws IdInvalidException, NameInvalidException {
@@ -74,6 +79,7 @@ public class RoleController {
 
     @DeleteMapping("/roles/{id}")
     @ApiMessage("Xóa vai trò")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_DELETE')")
     public ResponseEntity<Void> deleteRole(@PathVariable("id") Long id) throws IdInvalidException {
         this.roleService.deleteRole(id);
         return ResponseEntity.ok().build();
@@ -81,6 +87,7 @@ public class RoleController {
 
     @PutMapping("/roles/{id}/assign-permissions")
     @ApiMessage("Gán danh sách permission cho role")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_ASSIGN_PERMISSION')")
     public ResponseEntity<ResRoleListDTO> assignPermissions(
             @PathVariable Long id,
             @Valid @RequestBody ReqAssignPermissionsToRoleDTO req) throws IdInvalidException {

@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +41,7 @@ public class PermissionController {
 
     @PostMapping("/permissions")
     @ApiMessage("Tạo quyền mới")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PERMISSION_CREATE')")
     public ResponseEntity<ResCreatePermissionDTO> createPermission(
             @Valid @RequestBody ReqCreatePermissionDTO dto)
             throws NameInvalidException {
@@ -50,6 +52,7 @@ public class PermissionController {
 
     @GetMapping("/permissions")
     @ApiMessage("Lấy danh sách tất cả quyền")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PERMISSION_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllPermissions(
             @Filter Specification<Permission> spec, Pageable pageable) {
 
@@ -59,6 +62,7 @@ public class PermissionController {
 
     @GetMapping("/permissions/{id}")
     @ApiMessage("Lấy thông tin quyền theo ID")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PERMISSION_VIEW_DETAIL')")
     public ResponseEntity<ResPermissionDTO> getPermissionById(
             @PathVariable("id") Long id)
             throws IdInvalidException {
@@ -69,6 +73,7 @@ public class PermissionController {
 
     @PutMapping("/permissions/{id}")
     @ApiMessage("Cập nhật thông tin quyền")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PERMISSION_UPDATE')")
     public ResponseEntity<ResUpdatePermissionDTO> updatePermission(
             @PathVariable("id") Long id,
             @Valid @RequestBody ReqUpdatePermissionDTO dto)
@@ -80,6 +85,7 @@ public class PermissionController {
 
     @DeleteMapping("/permissions/{id}")
     @ApiMessage("Xóa quyền")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PERMISSION_DELETE')")
     public ResponseEntity<Void> deletePermission(
             @PathVariable("id") Long id)
             throws IdInvalidException {
