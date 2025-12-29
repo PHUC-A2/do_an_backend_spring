@@ -17,6 +17,7 @@ import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDTO;
+import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
 import com.example.backend.domain.response.user.ResCreateUserDTO;
 import com.example.backend.domain.response.user.ResUpdateUserDTO;
 import com.example.backend.domain.response.user.ResUserDetailDTO;
@@ -207,7 +208,7 @@ public class UserService {
         res.setRoles(
                 user.getRoles().stream()
                         .map(role -> {
-                            ResRoleNestedDTO roleDTO = new ResRoleNestedDTO();
+                            ResRoleNestedDetailDTO roleDTO = new ResRoleNestedDetailDTO();
                             roleDTO.setId(role.getId());
                             roleDTO.setName(role.getName());
                             roleDTO.setDescription(role.getDescription());

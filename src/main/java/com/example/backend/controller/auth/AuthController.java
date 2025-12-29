@@ -30,7 +30,7 @@ import com.example.backend.domain.response.login.JwtUserDTO;
 import com.example.backend.domain.response.login.LoginUserDTO;
 import com.example.backend.domain.response.login.ResLoginDTO;
 import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
-import com.example.backend.domain.response.role.ResRoleNestedDTO;
+import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
 import com.example.backend.service.UserService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
@@ -169,28 +169,27 @@ public class AuthController {
 
                 // map roles + permissions
                 accountUser.setRoles(
-                                user.getRoles().stream()
-                                                .map(role -> {
-                                                        ResRoleNestedDTO roleDTO = new ResRoleNestedDTO();
-                                                        roleDTO.setId(role.getId());
-                                                        roleDTO.setName(role.getName());
-                                                        roleDTO.setDescription(role.getDescription());
+                user.getRoles().stream()
+                        .map(role -> {
+                            ResRoleNestedDetailDTO roleDTO = new ResRoleNestedDetailDTO();
+                            roleDTO.setId(role.getId());
+                            roleDTO.setName(role.getName());
+                            roleDTO.setDescription(role.getDescription());
 
-                                                        roleDTO.setPermissions(
-                                                                        role.getPermissions().stream()
-                                                                                        .map(p -> {
-                                                                                                ResPermissionNestedDTO pDTO = new ResPermissionNestedDTO();
-                                                                                                pDTO.setId(p.getId());
-                                                                                                pDTO.setName(p.getName());
-                                                                                                pDTO.setDescription(p
-                                                                                                                .getDescription());
-                                                                                                return pDTO;
-                                                                                        })
-                                                                                        .toList());
+                            roleDTO.setPermissions(
+                                    role.getPermissions().stream()
+                                            .map(p -> {
+                                                ResPermissionNestedDTO pDTO = new ResPermissionNestedDTO();
+                                                pDTO.setId(p.getId());
+                                                pDTO.setName(p.getName());
+                                                pDTO.setDescription(p.getDescription());
+                                                return pDTO;
+                                            })
+                                            .toList());
 
-                                                        return roleDTO;
-                                                })
-                                                .toList());
+                            return roleDTO;
+                        })
+                        .toList());
 
                 ResAccountDTO res = new ResAccountDTO();
                 res.setUser(accountUser);

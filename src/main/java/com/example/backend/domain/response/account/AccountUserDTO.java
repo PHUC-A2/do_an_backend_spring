@@ -2,7 +2,7 @@ package com.example.backend.domain.response.account;
 
 import java.util.List;
 
-import com.example.backend.domain.response.role.ResRoleNestedDTO;
+import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -17,5 +17,5 @@ public class AccountUserDTO {
     private String phoneNumber;
     private String avatarUrl;
 
-    private List<ResRoleNestedDTO> roles;
+    private List<ResRoleNestedDetailDTO> roles;
 }
