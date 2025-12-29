@@ -1,6 +1,8 @@
 package com.example.backend.config;
 
-import java.util.Collections;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -29,8 +31,23 @@ public class UserDetailsCustom implements UserDetailsService {
             throw new UsernameNotFoundException("Username/password không hợp lệ");
         }
 
-        return new User(user.getEmail(), user.getPassword(),
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))); // tạm thời là USER
+        // LẤY PERMISSION
+        Collection<SimpleGrantedAuthority> authorities;
+
+        boolean isAdmin = user.getRoles().stream()
+                .anyMatch(role -> role.getName().equals("ADMIN"));
+        if (isAdmin) {
+            // Nếu là ADMIN thì full quyền
+            authorities = List.of(new SimpleGrantedAuthority("ALL"));
+        } else {
+            // Các role khác như VIEW/SATFF... phải dựa vào permission
+            authorities = user.getRoles().stream()
+                    .flatMap(role -> role.getPermissions().stream())
+                    .map(permission -> new SimpleGrantedAuthority(permission.getName()))
+                    .collect(Collectors.toSet());
+        }
+
+        return new User(user.getEmail(), user.getPassword(), authorities);
     }
 
 }

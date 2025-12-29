@@ -5,7 +5,9 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -94,6 +96,21 @@ public class GlobalException {
         res.setError("Lỗi khi tải file");
         res.setMessage(ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    }
+
+    // 403 - Forbidden (Method Security: @PreAuthorize, @HasPermission)
+    @ExceptionHandler({
+            AuthorizationDeniedException.class,
+            AccessDeniedException.class
+    })
+    public ResponseEntity<RestResponse<Object>> handleAccessDenied(Exception ex) {
+
+        RestResponse<Object> res = new RestResponse<>();
+        res.setStatusCode(HttpStatus.FORBIDDEN.value());
+        res.setError("Không có quyền truy cập");
+        res.setMessage("Bạn không có quyền thực hiện chức năng này");
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(res);
     }
 
     @ExceptionHandler(Exception.class)

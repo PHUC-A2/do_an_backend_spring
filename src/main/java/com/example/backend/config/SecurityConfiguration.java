@@ -26,7 +26,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
 
 @Configuration
-@EnableMethodSecurity(securedEnabled = true)
+@EnableMethodSecurity(securedEnabled = true, prePostEnabled = true)
 public class SecurityConfiguration {
 
         @Value("${backend.jwt.base64-secret}")
@@ -40,7 +40,8 @@ public class SecurityConfiguration {
         @Bean
         public SecurityFilterChain filterChain(
                         HttpSecurity http,
-                        CustomAuthenticationEntryPoint customAuthenticationEntryPoint) throws Exception {
+                        CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
+                        CustomAccessDeniedHandler customAccessDeniedHandler) throws Exception {
 
                 String[] whiteList = {
                                 "/",
@@ -54,18 +55,23 @@ public class SecurityConfiguration {
                 http
                                 .csrf(c -> c.disable())
                                 .cors(Customizer.withDefaults())
+                                // AUTHORIZATION
                                 .authorizeHttpRequests(
                                                 authz -> authz
                                                                 .requestMatchers(whiteList).permitAll()
                                                                 .requestMatchers("/api/v1/auth/account").authenticated()
-                                                                // .anyRequest().authenticated())
-                                                                .anyRequest().permitAll())
+                                                                .anyRequest().authenticated())
+                                // .anyRequest().permitAll())
+                                // JWT RESOURCE SERVE
                                 .oauth2ResourceServer(oauth2 -> oauth2
                                                 .jwt(jwt -> jwt
                                                                 .decoder(jwtDecoder())
                                                                 .jwtAuthenticationConverter(
-                                                                                jwtAuthenticationConverter()))
-                                                .authenticationEntryPoint(customAuthenticationEntryPoint))
+                                                                                jwtAuthenticationConverter())))
+                                // EXCEPTION HANDLING
+                                .exceptionHandling(ex -> ex
+                                                .authenticationEntryPoint(customAuthenticationEntryPoint) // 401
+                                                .accessDeniedHandler(customAccessDeniedHandler))
                                 .formLogin(f -> f.disable())
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS));

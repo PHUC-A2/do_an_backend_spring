@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.backend.domain.entity.User;
@@ -35,6 +36,7 @@ public class UserController {
 
     @PostMapping("/users")
     @ApiMessage("Tạo người dùng mới")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_CREATE')")
     public ResponseEntity<ResCreateUserDTO> createUser(
             @Valid @RequestBody ReqCreateUserDTO dto)
             throws EmailInvalidException {
@@ -45,6 +47,7 @@ public class UserController {
 
     @GetMapping("/users")
     @ApiMessage("Lấy danh sách người dùng")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllUsers(
             @Filter Specification<User> spec,
             Pageable pageable) {
@@ -55,6 +58,7 @@ public class UserController {
 
     @GetMapping("/users/{id}")
     @ApiMessage("Lấy thông tin người dùng theo ID")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_VIEW_DETAIL')")
     public ResponseEntity<ResUserDetailDTO> getUserById(
             @PathVariable("id") Long id)
             throws IdInvalidException {
@@ -66,6 +70,7 @@ public class UserController {
 
     @PutMapping("/users/{id}")
     @ApiMessage("Cập nhật thông tin người dùng")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_UPDATE')")
     public ResponseEntity<ResUpdateUserDTO> updateUser(
             @PathVariable("id") Long id,
             @Valid @RequestBody ReqUpdateUserDTO dto)
@@ -77,6 +82,7 @@ public class UserController {
 
     @DeleteMapping("/users/{id}")
     @ApiMessage("Xóa người dùng")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_DELETE')")
     public ResponseEntity<Void> deleteUser(
             @PathVariable("id") Long id)
             throws IdInvalidException {
@@ -87,6 +93,7 @@ public class UserController {
 
     @PutMapping("/users/{id}/assign-roles")
     @ApiMessage("Gán danh sách role cho user")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_ASSIGN_ROLE')")
     public ResponseEntity<ResUserListDTO> assignRoles(
             @PathVariable Long id,
             @Valid @RequestBody ReqAssignRolesToUserDTO req)

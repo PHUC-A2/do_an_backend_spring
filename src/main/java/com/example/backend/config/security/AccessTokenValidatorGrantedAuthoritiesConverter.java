@@ -13,7 +13,8 @@ public class AccessTokenValidatorGrantedAuthoritiesConverter {
     public AccessTokenValidatorGrantedAuthoritiesConverter() {
         delegate = new JwtGrantedAuthoritiesConverter();
         delegate.setAuthorityPrefix("");
-        delegate.setAuthoritiesClaimName("permission");
+        // delegate.setAuthoritiesClaimName("permission");
+        delegate.setAuthoritiesClaimName("authorities");
     }
 
     public Collection<GrantedAuthority> convert(Jwt jwt) {

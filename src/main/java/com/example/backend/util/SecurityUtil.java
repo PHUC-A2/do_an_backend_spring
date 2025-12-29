@@ -46,21 +46,25 @@ public class SecurityUtil {
     @Value("${backend.jwt.refresh-token-validity-in-second}")
     private long refreshTokenExpiration;
 
-    public String createAccessToken(String email, JwtUserDTO userToken) {
+    public String createAccessToken(
+            String email,
+            JwtUserDTO userToken,
+            List<String> authorities // truyền từ controller
+    ) {
 
         Instant now = Instant.now();
         Instant validity = now.plus(accessTokenExpiration, ChronoUnit.SECONDS);
 
-        List<String> permissions = List.of(
-                "ROLE_USER_CREATE",
-                "ROLE_USER_UPDATE");
+        // List<String> permissions = List.of(
+        // "ROLE_USER_CREATE",
+        // "ROLE_USER_UPDATE");
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuedAt(now)
                 .expiresAt(validity)
                 .subject(email)
                 .claim("user", userToken)
-                .claim("permission", permissions)
+                .claim("authorities", authorities)
                 .claim("type", "access")
                 .build();
 

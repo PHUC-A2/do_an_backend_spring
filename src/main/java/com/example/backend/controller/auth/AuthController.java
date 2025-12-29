@@ -1,5 +1,7 @@
 package com.example.backend.controller.auth;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -97,10 +99,27 @@ public class AuthController {
                                         currentUserDB.getEmail(),
                                         currentUserDB.getName());
 
-                        // 8. Tạo access token
+                        // 8. Kiểm tra role
+                        List<String> authorities;
+
+                        boolean isAdmin = currentUserDB.getRoles().stream()
+                                        .anyMatch(r -> r.getName().equals("ADMIN"));
+
+                        if (isAdmin) {
+                                authorities = List.of("ALL"); // ADMIN FULL QUYỀN
+                        } else {
+                                authorities = currentUserDB.getRoles().stream()
+                                                .flatMap(r -> r.getPermissions().stream())
+                                                .map(p -> p.getName())
+                                                .distinct()
+                                                .toList();
+                        }
+
+                        // 8.1 Tạo access token
                         String accessToken = securityUtil.createAccessToken(
                                         authentication.getName(), // email / username
-                                        jwtUser);
+                                        jwtUser,
+                                        authorities);
 
                         // 9. Tạo refresh token
                         String refreshToken = securityUtil.createRefreshToken(
@@ -224,10 +243,27 @@ public class AuthController {
                                         currentUserDB.getEmail(),
                                         currentUserDB.getName());
 
+                        // 9. Kiểm tra role
+                        List<String> authorities;
+
+                        boolean isAdmin = currentUserDB.getRoles().stream()
+                                        .anyMatch(r -> r.getName().equals("ADMIN"));
+
+                        if (isAdmin) {
+                                authorities = List.of("ALL"); // 👈 ADMIN FULL QUYỀN
+                        } else {
+                                authorities = currentUserDB.getRoles().stream()
+                                                .flatMap(r -> r.getPermissions().stream())
+                                                .map(p -> p.getName())
+                                                .distinct()
+                                                .toList();
+                        }
+
                         // 9. Tạo access token mới
                         String newAccessToken = securityUtil.createAccessToken(
                                         email,
-                                        jwtUser);
+                                        jwtUser,
+                                        authorities);
                         res.setAccessToken(newAccessToken);
 
                         // 10. Tạo refresh token mới
