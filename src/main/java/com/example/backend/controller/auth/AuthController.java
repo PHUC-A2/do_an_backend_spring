@@ -57,7 +57,8 @@ public class AuthController {
         private long refreshTokenExpiration;
 
         public AuthController(AuthenticationManagerBuilder authenticationManagerBuilder,
-                        SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder, RoleRepository roleRepository) {
+                        SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder,
+                        RoleRepository roleRepository) {
                 this.authenticationManagerBuilder = authenticationManagerBuilder;
                 this.securityUtil = securityUtil;
                 this.userService = userService;
@@ -94,8 +95,8 @@ public class AuthController {
                         // 6. DTO dùng để trả về cho client (response)
                         LoginUserDTO loginUser = new LoginUserDTO(
                                         currentUserDB.getId(),
-                                        currentUserDB.getEmail(),
-                                        currentUserDB.getName());
+                                        currentUserDB.getName(),
+                                        currentUserDB.getEmail());
                         res.setUser(loginUser);
 
                         // 7. DTO dùng để nhúng vào JWT (token)
@@ -207,12 +208,18 @@ public class AuthController {
         @GetMapping("/auth/refresh")
         @ApiMessage("Lấy refresh_token của người dùng")
         public ResponseEntity<ResLoginDTO> getRefreshToken(
-                        @CookieValue(name = "refresh_token", defaultValue = "abc") String refreshToken)
+                        // @CookieValue(name = "refresh_token", defaultValue = "abc") String
+                        // refreshToken)
+                        @CookieValue(name = "refresh_token", required = false) String refreshToken)
+
                         throws IdInvalidException {
 
                 // 1. Không có refresh token trong cookie
-                if ("abc".equals(refreshToken)) {
-                        throw new IdInvalidException("Bạn không có refresh token ở cookie");
+                // if ("abc".equals(refreshToken)) {
+                // throw new IdInvalidException("Bạn không có refresh token ở cookie");
+                // }
+                if (refreshToken == null) {
+                        return ResponseEntity.noContent().build(); // 204
                 }
 
                 // 2. Kiểm tra refresh token có hợp lệ (chữ ký, hết hạn…)
@@ -347,7 +354,7 @@ public class AuthController {
                         roles.add(viewRole);
                         user.setRoles(roles);
                 }
-                
+
                 this.userService.createUserForRegister(user);
 
                 return ResponseEntity.status(HttpStatus.CREATED)
