@@ -144,6 +144,7 @@ public class AuthController {
                                         .from("refresh_token", refreshToken)
                                         .httpOnly(true)
                                         .secure(true)
+                                        .sameSite("None")
                                         .path("/")
                                         .maxAge(refreshTokenExpiration)
                                         .build();
@@ -210,9 +211,7 @@ public class AuthController {
         public ResponseEntity<ResLoginDTO> getRefreshToken(
                         // @CookieValue(name = "refresh_token", defaultValue = "abc") String
                         // refreshToken)
-                        @CookieValue(name = "refresh_token", required = false) String refreshToken)
-
-                        throws IdInvalidException {
+                        @CookieValue(name = "refresh_token", required = false) String refreshToken) {
 
                 // 1. Không có refresh token trong cookie
                 // if ("abc".equals(refreshToken)) {
@@ -222,17 +221,45 @@ public class AuthController {
                         return ResponseEntity.noContent().build(); // 204
                 }
 
-                // 2. Kiểm tra refresh token có hợp lệ (chữ ký, hết hạn…)
-                Jwt decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
+                Jwt decodedToken;
+                String email;
 
-                // 3. Lấy email (subject) từ token
-                String email = decodedToken.getSubject();
+                try {
+                        // 2. Kiểm tra refresh token có hợp lệ (chữ ký, hết hạn…)
+                        decodedToken = securityUtil.checkValidRefreshToken(refreshToken);
+                        // 3. Lấy email (subject) từ token
+                        email = decodedToken.getSubject();
 
-                // 4. Kiểm tra refresh token này có khớp với DB không
-                // → tránh trường hợp token cũ / token bị đánh cắp
-                User currentUser = userService.getUserByRefreshTokenAndEmail(refreshToken, email);
-                if (currentUser == null) {
-                        throw new IdInvalidException("Refresh Token không hợp lệ");
+                        // 4. Kiểm tra refresh token này có khớp với DB không
+                        // → tránh trường hợp token cũ / token bị đánh cắp
+                        User currentUser = userService.getUserByRefreshTokenAndEmail(refreshToken, email);
+                        if (currentUser == null) {
+                                ResponseCookie deleteCookie = ResponseCookie
+                                                .from("refresh_token", "")
+                                                .httpOnly(true)
+                                                .secure(true)
+                                                .sameSite("None")
+                                                .path("/")
+                                                .maxAge(0)
+                                                .build();
+
+                                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                                                .build();
+                        }
+                } catch (Exception e) {
+                        ResponseCookie deleteCookie = ResponseCookie
+                                        .from("refresh_token", "")
+                                        .httpOnly(true)
+                                        .secure(true)
+                                        .sameSite("None")
+                                        .path("/")
+                                        .maxAge(0)
+                                        .build();
+
+                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                        .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                                        .build();
                 }
 
                 // 5. Chuẩn bị response
@@ -292,6 +319,7 @@ public class AuthController {
                                         .from("refresh_token", newRefreshToken)
                                         .httpOnly(true)
                                         .secure(true)
+                                        .sameSite("None")
                                         .path("/")
                                         .maxAge(refreshTokenExpiration)
                                         .build();
@@ -322,6 +350,7 @@ public class AuthController {
                                 .from("refresh_token", "")
                                 .httpOnly(true)
                                 .secure(true)
+                                .sameSite("None")
                                 .path("/")
                                 .maxAge(0)
                                 .build();

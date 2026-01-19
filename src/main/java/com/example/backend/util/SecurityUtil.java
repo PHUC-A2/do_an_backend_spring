@@ -19,11 +19,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.response.login.JwtUserDTO;
+import com.example.backend.util.error.IdInvalidException;
 import com.nimbusds.jose.util.Base64;
 
 @Service
@@ -101,15 +103,31 @@ public class SecurityUtil {
                 JWT_ALGORITHM.getName());
     }
 
-    public Jwt checkValidRefreshToken(String token) {
+    // public Jwt checkValidRefreshToken(String token) {
 
-        NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey())
-                .macAlgorithm(SecurityUtil.JWT_ALGORITHM)
-                .build();
+    //     NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey())
+    //             .macAlgorithm(SecurityUtil.JWT_ALGORITHM)
+    //             .build();
 
-        jwtDecoder.setJwtValidator(JwtValidators.createDefault()); // BẮT BUỘC
+    //     jwtDecoder.setJwtValidator(JwtValidators.createDefault()); // BẮT BUỘC
 
-        return jwtDecoder.decode(token); // HẾT HẠN → 401
+    //     return jwtDecoder.decode(token); // HẾT HẠN → 401
+    // }
+
+    public Jwt checkValidRefreshToken(String token) throws IdInvalidException {
+        try {
+            NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey())
+                    .macAlgorithm(SecurityUtil.JWT_ALGORITHM)
+                    .build();
+
+            jwtDecoder.setJwtValidator(JwtValidators.createDefault());
+
+            return jwtDecoder.decode(token);
+
+        } catch (JwtException ex) {
+            // HẾT HẠN / SAI CHỮ KÝ / TOKEN BỊ SỬA
+            throw new IdInvalidException("Refresh token hết hạn hoặc không hợp lệ");
+        }
     }
 
     /**
