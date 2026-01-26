@@ -50,7 +50,7 @@ public class PitchController {
 
     @GetMapping("/pitches")
     @ApiMessage("Lấy danh sách sân")
-    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_LIST')")
+    // @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllPitches(
             @Filter Specification<Pitch> spec,
             Pageable pageable) {
@@ -61,7 +61,7 @@ public class PitchController {
 
     @GetMapping("/pitches/{id}")
     @ApiMessage("Lấy thông tin sân theo ID")
-    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_DETAIL')")
+    // @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_DETAIL')")
     public ResponseEntity<ResPitchDTO> getPitchById(
             @PathVariable("id") Long id)
             throws IdInvalidException {
