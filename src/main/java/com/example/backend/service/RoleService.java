@@ -6,6 +6,8 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Permission;
@@ -33,7 +35,7 @@ public class RoleService {
         this.permissionRepository = permissionRepository;
     }
 
-    public ResCreateRoleDTO createRole(ReqCreateRoleDTO roleReq) throws NameInvalidException {
+    public ResCreateRoleDTO createRole(@NonNull ReqCreateRoleDTO roleReq) throws NameInvalidException {
 
         boolean isNameExists = this.roleRepository.existsByName(roleReq.getName());
         if (isNameExists) {
@@ -46,7 +48,7 @@ public class RoleService {
         return this.convertToResCreateRoleDTO(saveRole);
     }
 
-    public ResultPaginationDTO getAllRoles(Specification<Role> spec, Pageable pageable) {
+    public ResultPaginationDTO getAllRoles(@Nullable Specification<Role> spec, @NonNull Pageable pageable) {
 
         Page<Role> pageRole = this.roleRepository.findAll(spec, pageable);
         ResultPaginationDTO rs = new ResultPaginationDTO();
@@ -103,13 +105,15 @@ public class RoleService {
         return this.convertToResUpdateRoleDTO(updateRole);
     }
 
-    public void deleteRole(Long id) throws IdInvalidException {
-        Role role = this.getRoleById(id);
-        this.roleRepository.deleteById(role.getId());
+    public void deleteRole(@NonNull Long id) throws IdInvalidException {
+        // Role role = this.getRoleById(id);
+        this.getRoleById(id);
+        this.roleRepository.deleteById(id);
     }
 
     // convert req create
-    public Role convertToReqCreateRoleDTO(ReqCreateRoleDTO req) {
+    @NonNull
+    public Role convertToReqCreateRoleDTO(@NonNull ReqCreateRoleDTO req) {
         Role role = new Role();
         role.setName(req.getName());
         role.setDescription(req.getDescription());
@@ -192,9 +196,9 @@ public class RoleService {
             List<Long> permissionIds) throws IdInvalidException {
 
         // 1. Check null
-        if (permissionIds == null) {
-            throw new IdInvalidException("permissionIds không được null");
-        }
+        // if (permissionIds == null) {
+        //     throw new IdInvalidException("permissionIds không được null");
+        // }
 
         // 2. Check role tồn tại
         Role role = this.getRoleById(roleId);

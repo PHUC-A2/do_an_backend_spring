@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -33,6 +34,7 @@ public class FileController {
     @ApiMessage("Upload image file")
     public ResponseEntity<ResUploadFileDTO> uploadFile(
             @RequestParam("file") MultipartFile file,
+            @NonNull
             @RequestParam(name = "folder", defaultValue = "products") String folder)
             throws IOException, StorageException {
 
@@ -41,6 +43,11 @@ public class FileController {
         }
 
         String fileName = file.getOriginalFilename();
+        
+        if (fileName == null || fileName.isBlank()) {
+            throw new StorageException("File name is invalid");
+        }
+
         List<String> allowedExtensions = Arrays.asList("jpg", "jpeg", "png", "webp");
         boolean isValid = allowedExtensions.stream()
                 .anyMatch(ext -> fileName.toLowerCase().endsWith("." + ext));

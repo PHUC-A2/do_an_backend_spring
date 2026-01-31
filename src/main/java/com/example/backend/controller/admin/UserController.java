@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,7 +51,7 @@ public class UserController {
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllUsers(
             @Filter Specification<User> spec,
-            Pageable pageable) {
+            @NonNull Pageable pageable) {
 
         return ResponseEntity.ok(
                 this.userService.getAllUsers(spec, pageable));
@@ -84,7 +85,7 @@ public class UserController {
     @ApiMessage("Xóa người dùng")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_DELETE')")
     public ResponseEntity<Void> deleteUser(
-            @PathVariable("id") Long id)
+            @PathVariable("id") @NonNull Long id)
             throws IdInvalidException {
 
         this.userService.deleteUser(id);
@@ -95,7 +96,7 @@ public class UserController {
     @ApiMessage("Gán danh sách role cho user")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_ASSIGN_ROLE')")
     public ResponseEntity<ResUserListDTO> assignRoles(
-            @PathVariable Long id,
+            @PathVariable @NonNull Long id,
             @Valid @RequestBody ReqAssignRolesToUserDTO req)
             throws IdInvalidException {
 

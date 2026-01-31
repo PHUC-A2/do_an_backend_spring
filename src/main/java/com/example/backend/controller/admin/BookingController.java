@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,7 +55,7 @@ public class BookingController {
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllBookings(
             @Filter Specification<Booking> spec,
-            Pageable pageable) {
+            @NonNull Pageable pageable) {
 
         return ResponseEntity.ok(this.bookingService.getAllBookings(spec, pageable));
     }
@@ -63,7 +64,7 @@ public class BookingController {
     @GetMapping("/bookings/{id}")
     @ApiMessage("Lấy thông tin đặt lịch theo ID")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_VIEW_DETAIL')")
-    public ResponseEntity<ResBookingDTO> getBookingById(@PathVariable Long id) throws IdInvalidException {
+    public ResponseEntity<ResBookingDTO> getBookingById(@PathVariable @NonNull Long id) throws IdInvalidException {
         Booking booking = this.bookingService.getBookingById(id);
         ResBookingDTO res = this.bookingService.convertToResBookingDTO(booking);
         return ResponseEntity.ok(res);
@@ -74,7 +75,7 @@ public class BookingController {
     @ApiMessage("Cập nhật thông tin đặt lịch")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_UPDATE')")
     public ResponseEntity<ResUpdateBookingDTO> updateBooking(
-            @PathVariable Long id,
+            @PathVariable @NonNull Long id,
             @Valid @RequestBody ReqUpdateBookingDTO req) throws IdInvalidException {
 
         // Kiểm tra admin
@@ -90,7 +91,7 @@ public class BookingController {
     @DeleteMapping("/bookings/{id}")
     @ApiMessage("Xóa đặt lịch")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_DELETE')")
-    public ResponseEntity<Void> deleteBooking(@PathVariable Long id) throws IdInvalidException {
+    public ResponseEntity<Void> deleteBooking(@PathVariable @NonNull Long id) throws IdInvalidException {
         this.bookingService.deleteBooking(id);
         return ResponseEntity.ok().build();
     }

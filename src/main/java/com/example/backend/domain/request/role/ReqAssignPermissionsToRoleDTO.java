@@ -2,7 +2,7 @@ package com.example.backend.domain.request.role;
 
 import java.util.List;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,6 +12,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ReqAssignPermissionsToRoleDTO {
 
-    @NotNull(message = "permissionIds không được null")
+    @NotEmpty(message = "permissionIds không được rỗng")
     private List<Long> permissionIds;
 }

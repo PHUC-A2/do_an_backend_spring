@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -42,7 +43,7 @@ public class PitchController {
     @ApiMessage("Tạo sân mới")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_CREATE')")
     public ResponseEntity<ResCreatePitchDTO> createPitch(
-            @Valid @RequestBody ReqCreatePitchDTO dto) {
+            @Valid @RequestBody @NonNull ReqCreatePitchDTO dto) {
 
         ResCreatePitchDTO res = this.pitchService.createPitch(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
@@ -53,7 +54,7 @@ public class PitchController {
     // @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllPitches(
             @Filter Specification<Pitch> spec,
-            Pageable pageable) {
+            @NonNull Pageable pageable) {
 
         return ResponseEntity.ok(
                 this.pitchService.getAllPitches(spec, pageable));
@@ -63,7 +64,7 @@ public class PitchController {
     @ApiMessage("Lấy thông tin sân theo ID")
     // @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_VIEW_DETAIL')")
     public ResponseEntity<ResPitchDTO> getPitchById(
-            @PathVariable("id") Long id)
+            @PathVariable("id") @NonNull Long id)
             throws IdInvalidException {
 
         Pitch pitch = this.pitchService.getPitchById(id);
@@ -75,7 +76,7 @@ public class PitchController {
     @ApiMessage("Cập nhật thông tin sân")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_UPDATE')")
     public ResponseEntity<ResUpdatePitchDTO> updatePitch(
-            @PathVariable("id") Long id,
+            @PathVariable("id") @NonNull Long id,
             @Valid @RequestBody ReqUpdatePitchDTO dto)
             throws IdInvalidException {
 
@@ -87,7 +88,7 @@ public class PitchController {
     @ApiMessage("Xóa sân")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('PITCH_DELETE')")
     public ResponseEntity<Void> deletePitch(
-            @PathVariable("id") Long id)
+            @PathVariable("id") @NonNull Long id)
             throws IdInvalidException {
 
         this.pitchService.deletePitch(id);

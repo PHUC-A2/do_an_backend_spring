@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Booking;
@@ -52,7 +53,7 @@ public class BookingService {
         if (req.getUserId() != null) {
             // Kiểm tra quyền admin
             // if (!SecurityUtil.isCurrentUserAdmin()) {
-            //     throw new BadRequestException("Không có quyền đặt cho user khác");
+            // throw new BadRequestException("Không có quyền đặt cho user khác");
             // }
             user = userService.getUserById(req.getUserId());
         } else {
@@ -69,7 +70,11 @@ public class BookingService {
         }
 
         // 3. Lấy pitch
-        Pitch pitch = pitchService.getPitchById(req.getPitchId());
+        Long pitchId = req.getPitchId();
+        if (pitchId == null) {
+            throw new IdInvalidException("pitchId không được để trống");
+        }
+        Pitch pitch = pitchService.getPitchById(pitchId);
 
         // 4. Validate thời gian
         this.validateTime(req.getStartDateTime(), req.getEndDateTime());
@@ -97,7 +102,7 @@ public class BookingService {
     }
 
     // get all
-    public ResultPaginationDTO getAllBookings(Specification<Booking> spec, Pageable pageable) {
+    public ResultPaginationDTO getAllBookings(Specification<Booking> spec, @NonNull Pageable pageable) {
         Page<Booking> pageBooking = bookingRepository.findAll(spec, pageable);
 
         ResultPaginationDTO result = new ResultPaginationDTO();
@@ -118,7 +123,7 @@ public class BookingService {
     }
 
     // get by id
-    public Booking getBookingById(Long id) throws IdInvalidException {
+    public Booking getBookingById(@NonNull Long id) throws IdInvalidException {
 
         Optional<Booking> optionalBooking = this.bookingRepository.findById(id);
         if (optionalBooking.isPresent()) {
@@ -128,7 +133,7 @@ public class BookingService {
     }
 
     @Transactional
-    public ResUpdateBookingDTO updateBooking(Long id, ReqUpdateBookingDTO req) throws IdInvalidException {
+    public ResUpdateBookingDTO updateBooking(@NonNull Long id, ReqUpdateBookingDTO req) throws IdInvalidException {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IdInvalidException("Booking không tồn tại"));
 
@@ -142,8 +147,15 @@ public class BookingService {
         }
 
         // 2. Nếu admin muốn đổi pitch
-        if (req.getPitchId() != null && !req.getPitchId().equals(booking.getPitch().getId())) {
-            Pitch newPitch = pitchService.getPitchById(req.getPitchId());
+        
+        // if (req.getPitchId() != null && !req.getPitchId().equals(booking.getPitch().getId())) {
+        //     Pitch newPitch = pitchService.getPitchById(req.getPitchId());
+        //     booking.setPitch(newPitch);
+        // }
+
+        Long newPitchId = req.getPitchId();
+        if (newPitchId != null && !newPitchId.equals(booking.getPitch().getId())) {
+            Pitch newPitch = pitchService.getPitchById(newPitchId);
             booking.setPitch(newPitch);
         }
 
@@ -174,10 +186,11 @@ public class BookingService {
     }
 
     // delete
-    public void deleteBooking(Long id) throws IdInvalidException {
+    public void deleteBooking(@NonNull Long id) throws IdInvalidException {
 
-        Booking booking = this.getBookingById(id);
-        this.bookingRepository.deleteById(booking.getId());
+        // Booking booking = this.getBookingById(id);
+        this.getBookingById(id);
+        this.bookingRepository.deleteById(id);
     }
 
     // ==============HELPER===========
@@ -292,7 +305,7 @@ public class BookingService {
 
     // ==========Client=========
     // Lấy booking chỉ của user
-    public Booking getBookingByIdForUser(Long id, String email) throws IdInvalidException {
+    public Booking getBookingByIdForUser(@NonNull Long id, String email) throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
         Booking booking = getBookingById(id);
         if (!booking.getUser().getId().equals(user.getId())) {
@@ -303,7 +316,7 @@ public class BookingService {
 
     // Update booking của user
     @Transactional
-    public ResUpdateBookingDTO updateBookingForUser(Long id, ReqUpdateBookingDTO req, String email)
+    public ResUpdateBookingDTO updateBookingForUser(@NonNull Long id, ReqUpdateBookingDTO req, String email)
             throws IdInvalidException {
 
         // Chỉ để kiểm tra quyền truy cập
@@ -315,13 +328,13 @@ public class BookingService {
 
     // Delete booking của user
     @Transactional
-    public void deleteBookingForUser(Long id, String email) throws IdInvalidException {
+    public void deleteBookingForUser(@NonNull Long id, String email) throws IdInvalidException {
         this.getBookingByIdForUser(id, email);
         this.deleteBooking(id);
     }
 
     // Get all bookings của user
-    public ResultPaginationDTO getAllBookingsOfUser(String email, Pageable pageable) throws IdInvalidException {
+    public ResultPaginationDTO getAllBookingsOfUser(String email, @NonNull Pageable pageable) throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
         Specification<Booking> spec = (root, query, cb) -> cb.equal(root.get("user").get("id"), user.getId());
         return getAllBookings(spec, pageable);

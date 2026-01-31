@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Permission;
@@ -30,7 +31,7 @@ public class PermissionService {
     }
 
     // CREATE
-    public ResCreatePermissionDTO createPermission(ReqCreatePermissionDTO permissionReq)
+    public ResCreatePermissionDTO createPermission(@NonNull ReqCreatePermissionDTO permissionReq)
             throws NameInvalidException {
 
         boolean isNameExists = permissionRepository.existsByName(permissionReq.getName());
@@ -47,7 +48,7 @@ public class PermissionService {
 
     // GET ALL + PAGINATION
     public ResultPaginationDTO getAllPermissions(
-            Specification<Permission> spec, Pageable pageable) {
+            Specification<Permission> spec, @NonNull Pageable pageable) {
 
         Page<Permission> pagePermission = this.permissionRepository.findAll(spec, pageable);
 
@@ -72,7 +73,7 @@ public class PermissionService {
     }
 
     // GET BY ID
-    public Permission getPermissionById(Long id) throws IdInvalidException {
+    public Permission getPermissionById(@NonNull Long id) throws IdInvalidException {
         Optional<Permission> permissionOptional = this.permissionRepository.findById(id);
 
         if (permissionOptional.isPresent()) {
@@ -85,7 +86,7 @@ public class PermissionService {
 
     // UPDATE
     public ResUpdatePermissionDTO updatePermission(
-            Long id, ReqUpdatePermissionDTO permissionReq)
+            @NonNull Long id, ReqUpdatePermissionDTO permissionReq)
             throws IdInvalidException, NameInvalidException {
 
         Permission permission = this.getPermissionById(id);
@@ -105,14 +106,16 @@ public class PermissionService {
     }
 
     // DELETE
-    public void deletePermission(Long id) throws IdInvalidException {
-        Permission permission = getPermissionById(id);
-        this.permissionRepository.deleteById(permission.getId());
+    public void deletePermission(@NonNull Long id) throws IdInvalidException {
+        // Permission permission = getPermissionById(id);
+        this.getPermissionById(id);
+        this.permissionRepository.deleteById(id);
     }
 
     // CONVERT CREATE DTO
+    @NonNull
     public Permission convertToReqCreatePermissionDTO(
-            ReqCreatePermissionDTO req) {
+            @NonNull ReqCreatePermissionDTO req) {
 
         Permission permission = new Permission();
         permission.setId(req.getId());

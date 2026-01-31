@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -44,7 +45,7 @@ public class RoleController {
     @PostMapping("/roles")
     @ApiMessage("Tạo vai trò mới")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_CREATE')")
-    public ResponseEntity<ResCreateRoleDTO> createRole(@Valid @RequestBody ReqCreateRoleDTO dto)
+    public ResponseEntity<ResCreateRoleDTO> createRole(@Valid @RequestBody @NonNull ReqCreateRoleDTO dto)
             throws NameInvalidException {
         ResCreateRoleDTO res = this.roleService.createRole(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
@@ -54,7 +55,7 @@ public class RoleController {
     @ApiMessage("Lấy danh sách tất cả vai trò")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllRoles(
-            @Filter Specification<Role> spec, Pageable pageable) {
+            @Filter Specification<Role> spec, @NonNull Pageable pageable) {
         return ResponseEntity.ok(this.roleService.getAllRoles(spec, pageable));
     }
 
@@ -80,7 +81,7 @@ public class RoleController {
     @DeleteMapping("/roles/{id}")
     @ApiMessage("Xóa vai trò")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_DELETE')")
-    public ResponseEntity<Void> deleteRole(@PathVariable("id") Long id) throws IdInvalidException {
+    public ResponseEntity<Void> deleteRole(@PathVariable("id") @NonNull Long id) throws IdInvalidException {
         this.roleService.deleteRole(id);
         return ResponseEntity.ok().build();
     }

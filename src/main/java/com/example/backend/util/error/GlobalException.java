@@ -5,6 +5,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
@@ -79,8 +80,19 @@ public class GlobalException {
         res.setError("Kiểu tham số không hợp lệ");
 
         String paramName = ex.getName();
-        String requiredType = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "Unknown";
-        String invalidValue = ex.getValue() != null ? ex.getValue().toString() : "null";
+        Class<?> requiredTypeClass = ex.getRequiredType();
+        Object invalidVal = ex.getValue();
+        String requiredType = requiredTypeClass != null
+                ? requiredTypeClass.getSimpleName()
+                : "Unknown";
+
+        String invalidValue = invalidVal != null
+                ? invalidVal.toString()
+                : "null";
+        // String requiredType = ex.getRequiredType() != null ?
+        // ex.getRequiredType().getSimpleName() : "Unknown";
+        // String invalidValue = ex.getValue() != null ? ex.getValue().toString() :
+        // "null";
 
         res.setMessage(String.format(
                 "Tham số '%s' phải có kiểu %s nhưng giá trị '%s' không hợp lệ",
@@ -141,6 +153,19 @@ public class GlobalException {
         res.setError("Yêu cầu không hợp lệ");
         res.setMessage(ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<RestResponse<Object>> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex) {
+
+        RestResponse<Object> res = new RestResponse<>();
+        res.setStatusCode(400);
+        res.setError("Dữ liệu đầu vào không hợp lệ");
+        res.setMessage("JSON không đúng định dạng hoặc sai kiểu dữ liệu");
+        res.setData(null);
+
+        return ResponseEntity.badRequest().body(res);
     }
 
 }

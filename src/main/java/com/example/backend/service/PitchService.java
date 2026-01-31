@@ -7,6 +7,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Pitch;
@@ -28,7 +29,7 @@ public class PitchService {
         this.pitchRepository = pitchRepository;
     }
 
-    public ResCreatePitchDTO createPitch(ReqCreatePitchDTO req) {
+    public ResCreatePitchDTO createPitch(@NonNull ReqCreatePitchDTO req) {
 
         Pitch pitch = this.convertToReqCreatePitch(req);
         Pitch savedPitch = this.pitchRepository.save(pitch);
@@ -36,7 +37,7 @@ public class PitchService {
         return this.convertToResCreatePitchDTO(savedPitch);
     }
 
-    public ResultPaginationDTO getAllPitches(Specification<Pitch> spec, Pageable pageable) {
+    public ResultPaginationDTO getAllPitches(Specification<Pitch> spec, @NonNull Pageable pageable) {
 
         Page<Pitch> pagePitch = this.pitchRepository.findAll(spec, pageable);
 
@@ -59,7 +60,7 @@ public class PitchService {
         return rs;
     }
 
-    public Pitch getPitchById(Long id) throws IdInvalidException {
+    public Pitch getPitchById(@NonNull Long id) throws IdInvalidException {
 
         Optional<Pitch> optionalPitch = this.pitchRepository.findById(id);
         if (optionalPitch.isPresent()) {
@@ -68,7 +69,7 @@ public class PitchService {
         throw new IdInvalidException("Không tìm thấy Pitch với ID = " + id);
     }
 
-    public ResUpdatePitchDTO updatePitch(Long id, ReqUpdatePitchDTO req)
+    public ResUpdatePitchDTO updatePitch(@NonNull Long id, ReqUpdatePitchDTO req)
             throws IdInvalidException {
 
         Pitch pitch = this.getPitchById(id);
@@ -88,15 +89,17 @@ public class PitchService {
         return this.convertToResUpdatePitchDTO(updatedPitch);
     }
 
-    public void deletePitch(Long id) throws IdInvalidException {
+    public void deletePitch(@NonNull Long id) throws IdInvalidException {
 
-        Pitch pitch = this.getPitchById(id);
-        this.pitchRepository.deleteById(pitch.getId());
+        // Pitch pitch = this.getPitchById(id);
+        this.getPitchById(id);
+        this.pitchRepository.deleteById(id);
     }
 
 
     // req create -> entity
-    public Pitch convertToReqCreatePitch(ReqCreatePitchDTO req) {
+    @NonNull
+    public Pitch convertToReqCreatePitch(@NonNull ReqCreatePitchDTO req) {
 
         Pitch pitch = new Pitch();
 

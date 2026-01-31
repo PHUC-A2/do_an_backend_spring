@@ -8,6 +8,8 @@ import java.util.Set;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -54,18 +56,18 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(req.getPassword()));
 
         // Lấy role VIEW và gắn mặc định
-                Role viewRole = this.roleRepository.findByName("VIEW");
-                if (viewRole != null) {
-                        Set<Role> roles = new HashSet<>();
-                        roles.add(viewRole);
-                        user.setRoles(roles);
-                }
+        Role viewRole = this.roleRepository.findByName("VIEW");
+        if (viewRole != null) {
+            Set<Role> roles = new HashSet<>();
+            roles.add(viewRole);
+            user.setRoles(roles);
+        }
 
         User savedUser = this.userRepository.save(user);
         return this.convertToResCreateUserDTO(savedUser);
     }
 
-    public ResultPaginationDTO getAllUsers(Specification<User> spec, Pageable pageable) {
+    public ResultPaginationDTO getAllUsers(@Nullable Specification<User> spec, @NonNull Pageable pageable) {
 
         Page<User> pageUser = this.userRepository.findAll(spec, pageable);
 
@@ -117,9 +119,10 @@ public class UserService {
         return this.convertToResUpdateUserDTO(updatedUser);
     }
 
-    public void deleteUser(Long id) throws IdInvalidException {
-        User user = this.getUserById(id);
-        this.userRepository.deleteById(user.getId());
+    public void deleteUser(@NonNull Long id) throws IdInvalidException {
+        // User user = this.getUserById(id);
+        this.getUserById(id);
+        this.userRepository.deleteById(id);
     }
 
     // req create -> entity
@@ -271,19 +274,19 @@ public class UserService {
     }
 
     // Dành cho AuthController.register
-    public User createUserForRegister(User user) {
+    public User createUserForRegister(@NonNull User user) {
         return this.userRepository.save(user);
     }
 
     // gắn role cho user
     public ResUserListDTO assignRolesToUser(
-            Long userId,
+            @NonNull Long userId,
             List<Long> roleIds) throws IdInvalidException {
 
         // 1. Check null
-        if (roleIds == null) {
-            throw new IdInvalidException("roleIds không được null");
-        }
+        // if (roleIds.equals(null)) {
+        //     throw new IdInvalidException("roleIds không được null");
+        // }
 
         // 2. Check user tồn tại
         User user = userRepository.findById(userId)

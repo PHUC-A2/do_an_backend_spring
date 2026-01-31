@@ -2,11 +2,11 @@ package com.example.backend.domain.request.user;
 
 import java.util.List;
 
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotEmpty;
 
 public class ReqAssignRolesToUserDTO {
 
-    @NotNull(message = "roleIds không được null")
+    @NotEmpty(message = "roleIds không được rỗng")
     private List<Long> roleIds;
 
     public List<Long> getRoleIds() {

@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -27,12 +28,22 @@ public class FileService {
         }
     }
 
-    public String store(MultipartFile file, String folder) throws IOException {
-        if (file == null || file.isEmpty()) {
+    @NonNull
+    public String store(
+            @NonNull MultipartFile file,
+            @NonNull String folder) throws IOException {
+
+        if (file.isEmpty()) {
             throw new RuntimeException("File is empty or missing");
         }
 
-        String finalName = System.currentTimeMillis() + "-" + file.getOriginalFilename();
+        String originalName = file.getOriginalFilename();
+        if (originalName == null || originalName.isBlank()) {
+            throw new RuntimeException("Invalid file name");
+        }
+
+        String finalName = System.currentTimeMillis() + "-" + originalName;
+
         Path uploadDir = Paths.get(baseURI, folder);
         createUploadFolder(uploadDir);
 

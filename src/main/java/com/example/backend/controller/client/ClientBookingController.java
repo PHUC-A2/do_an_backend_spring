@@ -3,6 +3,7 @@ package com.example.backend.controller.client;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.backend.domain.entity.Booking;
@@ -43,7 +44,7 @@ public class ClientBookingController {
     // GET all bookings của chính user
     @GetMapping("/bookings")
     @ApiMessage("Lấy danh sách tất cả booking của chính user (có phân trang)")
-    public ResponseEntity<ResultPaginationDTO> getAllBookings(Pageable pageable) throws IdInvalidException {
+    public ResponseEntity<ResultPaginationDTO> getAllBookings(@NonNull Pageable pageable) throws IdInvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy user login"));
 
@@ -54,7 +55,7 @@ public class ClientBookingController {
     // GET booking theo ID (chỉ của chính user)
     @GetMapping("/bookings/{id}")
     @ApiMessage("Lấy thông tin booking theo ID của chính user")
-    public ResponseEntity<ResBookingDTO> getBookingById(@PathVariable Long id) throws IdInvalidException {
+    public ResponseEntity<ResBookingDTO> getBookingById(@PathVariable @NonNull Long id) throws IdInvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy user login"));
 
@@ -67,7 +68,7 @@ public class ClientBookingController {
     @PutMapping("/bookings/{id}")
     @ApiMessage("Cập nhật thông tin booking của chính user")
     public ResponseEntity<ResUpdateBookingDTO> updateBooking(
-            @PathVariable Long id,
+            @PathVariable @NonNull Long id,
             @Valid @RequestBody ReqUpdateBookingDTO req) throws IdInvalidException {
 
         String email = SecurityUtil.getCurrentUserLogin()
@@ -80,7 +81,7 @@ public class ClientBookingController {
     // DELETE booking (chỉ của chính user)
     @DeleteMapping("/bookings/{id}")
     @ApiMessage("Xóa booking của chính user")
-    public ResponseEntity<Void> deleteBooking(@PathVariable Long id) throws IdInvalidException {
+    public ResponseEntity<Void> deleteBooking(@PathVariable @NonNull Long id) throws IdInvalidException {
         String email = SecurityUtil.getCurrentUserLogin()
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy user login"));
 
