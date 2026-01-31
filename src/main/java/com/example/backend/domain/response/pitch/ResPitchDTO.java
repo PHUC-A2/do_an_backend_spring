@@ -25,6 +25,8 @@ public class ResPitchDTO {
     private boolean open24h;
     private PitchStatusEnum status;
     private String address;
+    private Double latitude;
+    private Double longitude;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

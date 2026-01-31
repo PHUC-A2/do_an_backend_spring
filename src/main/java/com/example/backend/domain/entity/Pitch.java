@@ -65,6 +65,12 @@ public class Pitch {
 
     private String address;
 
+    @Column(nullable = false)
+    private Double latitude; // vĩ dộ
+
+    @Column(nullable = false)
+    private Double longitude; // kinh độ
+
     @OneToMany(mappedBy = "pitch", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Booking> bookings = new ArrayList<>();

@@ -83,6 +83,8 @@ public class PitchService {
         pitch.setOpen24h(req.isOpen24h());
         pitch.setStatus(req.getStatus());
         pitch.setAddress(req.getAddress());
+        pitch.setLatitude(req.getLatitude());
+        pitch.setLongitude(req.getLongitude());
 
         Pitch updatedPitch = this.pitchRepository.save(pitch);
 
@@ -112,6 +114,8 @@ public class PitchService {
         pitch.setOpen24h(req.isOpen24h());
         pitch.setStatus(req.getStatus());
         pitch.setAddress(req.getAddress());
+        pitch.setLatitude(req.getLatitude());
+        pitch.setLongitude(req.getLongitude());
 
         return pitch;
     }
@@ -131,6 +135,9 @@ public class PitchService {
         res.setOpen24h(pitch.isOpen24h());
         res.setStatus(pitch.getStatus());
         res.setAddress(pitch.getAddress());
+        res.setLatitude(pitch.getLatitude());
+        res.setLongitude(pitch.getLongitude());
+
         res.setCreatedAt(pitch.getCreatedAt());
         res.setCreatedBy(pitch.getCreatedBy());
 
@@ -152,6 +159,9 @@ public class PitchService {
         res.setOpen24h(pitch.isOpen24h());
         res.setStatus(pitch.getStatus());
         res.setAddress(pitch.getAddress());
+        res.setLatitude(pitch.getLatitude());
+        res.setLongitude(pitch.getLongitude());
+
         res.setUpdatedAt(pitch.getUpdatedAt());
         res.setUpdatedBy(pitch.getUpdatedBy());
 
@@ -173,6 +183,9 @@ public class PitchService {
         res.setOpen24h(pitch.isOpen24h());
         res.setStatus(pitch.getStatus());
         res.setAddress(pitch.getAddress());
+        res.setLatitude(pitch.getLatitude());
+        res.setLongitude(pitch.getLongitude());
+        
         res.setCreatedAt(pitch.getCreatedAt());
         res.setCreatedBy(pitch.getCreatedBy());
         res.setUpdatedAt(pitch.getUpdatedAt());

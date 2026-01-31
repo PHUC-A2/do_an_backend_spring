@@ -7,6 +7,8 @@ import com.example.backend.util.constant.pitch.PitchStatusEnum;
 import com.example.backend.util.constant.pitch.PitchTypeEnum;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -40,4 +42,15 @@ public class ReqCreatePitchDTO {
 
     @NotBlank(message = "Địa chỉ sân không được để trống")
     private String address;
+
+    @NotNull(message = "Vĩ độ không được để trống")
+    @Min(value = -90, message = "Vĩ độ tối thiểu là -90")
+    @Max(value = 90, message = "Vĩ độ tối đa là 90")
+    private Double latitude;
+
+    @NotNull(message = "Kinh độ không được để trống")
+    @Min(value = -180, message = "Kinh độ tối thiểu là -180")
+    @Max(value = 180, message = "Kinh độ tối đa là 180")
+    private Double longitude;
+
 }

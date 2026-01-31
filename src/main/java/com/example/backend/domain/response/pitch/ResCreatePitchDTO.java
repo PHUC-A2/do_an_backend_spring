@@ -24,6 +24,8 @@ public class ResCreatePitchDTO {
     private boolean open24h;
     private PitchStatusEnum status;
     private String address;
+    private Double latitude;
+    private Double longitude;
     private Instant createdAt;
     private String createdBy;
 }
