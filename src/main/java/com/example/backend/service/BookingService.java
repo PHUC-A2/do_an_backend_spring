@@ -1,5 +1,8 @@
 package com.example.backend.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,9 +50,8 @@ public class BookingService {
     @Transactional
     public ResCreateBookingDTO createBooking(ReqCreateBookingDTO req) throws IdInvalidException {
 
+        // 1. Nếu userId != null => admin đặt cho user khác
         User user;
-
-        // 0. Nếu userId != null => admin đặt cho user khác
         if (req.getUserId() != null) {
             // Kiểm tra quyền admin
             // if (!SecurityUtil.isCurrentUserAdmin()) {
@@ -58,7 +60,7 @@ public class BookingService {
             user = userService.getUserById(req.getUserId());
         } else {
 
-            // 1. Lấy user từ token
+            // Lấy user từ token
             // user từ token (client đặt)
             String email = SecurityUtil.getCurrentUserLogin().orElse("");
             user = userService.handleGetUserByUsername(email);
@@ -69,23 +71,39 @@ public class BookingService {
             throw new BadRequestException("Tài khoản không đủ điều kiện đặt lịch");
         }
 
-        // 3. Lấy pitch
+        // 3. Lấy pitch Validate pitchId
         Long pitchId = req.getPitchId();
         if (pitchId == null) {
             throw new IdInvalidException("pitchId không được để trống");
         }
-        Pitch pitch = pitchService.getPitchById(pitchId);
 
         // 4. Validate thời gian
         this.validateTime(req.getStartDateTime(), req.getEndDateTime());
 
-        // 5. Check trùng lịch
+        // 5. Lấy sân (pitch)
+        Pitch pitch = pitchService.getPitchById(pitchId);
+
+        // 6. Check trùng lịch
         this.checkOverlapping(pitch.getId(), req);
 
-        // 6. Resolve contactPhone
+        // 7. Tính durationMinutes
+        long durationMinutes = calculateDurationMinutes(
+                req.getStartDateTime(),
+                req.getEndDateTime());
+
+        // 8. Lấy giá sân và Validate
+        BigDecimal pricePerHour = pitch.getPricePerHour();
+        if (pricePerHour == null || pricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Giá sân không hợp lệ");
+        }
+
+        // 9. Tính tổng tiền
+        BigDecimal totalPrice = calculateTotalPrice(pricePerHour, durationMinutes);
+
+        // 10. Resolve contactPhone
         String contactPhone = this.resolveContactPhone(user, req.getContactPhone());
 
-        // 7. Lưu booking
+        // 11. Lưu booking
         Booking booking = new Booking();
         booking.setUser(user);
         booking.setPitch(pitch);
@@ -94,10 +112,12 @@ public class BookingService {
         booking.setShirtOption(
                 req.getShirtOption() != null ? req.getShirtOption() : ShirtOptionEnum.WITHOUT_PITCH_SHIRT);
         booking.setContactPhone(contactPhone);
+        booking.setDurationMinutes(durationMinutes);
+        booking.setTotalPrice(totalPrice);
 
         this.bookingRepository.save(booking);
 
-        // 8. Trả response
+        // 12. Trả response
         return this.convertToResCreateBookingDTO(booking);
     }
 
@@ -132,12 +152,74 @@ public class BookingService {
         throw new IdInvalidException("Không tìm thấy Booking với ID = " + id);
     }
 
+    /*
+     * @Transactional
+     * public ResUpdateBookingDTO updateBooking(@NonNull Long id,
+     * ReqUpdateBookingDTO req) throws IdInvalidException {
+     * Booking booking = bookingRepository.findById(id)
+     * .orElseThrow(() -> new IdInvalidException("Booking không tồn tại"));
+     * 
+     * // 1. Nếu admin muốn đổi user
+     * if (req.getUserId() != null &&
+     * !req.getUserId().equals(booking.getUser().getId())) {
+     * User newUser = userService.getUserById(req.getUserId());
+     * if (newUser.getStatus() != UserStatusEnum.ACTIVE) {
+     * throw new BadRequestException("Tài khoản mới không đủ điều kiện đặt lịch");
+     * }
+     * booking.setUser(newUser);
+     * }
+     * 
+     * // 2. Nếu admin muốn đổi pitch
+     * 
+     * // if (req.getPitchId() != null &&
+     * // !req.getPitchId().equals(booking.getPitch().getId())) {
+     * // Pitch newPitch = pitchService.getPitchById(req.getPitchId());
+     * // booking.setPitch(newPitch);
+     * // }
+     * 
+     * Long newPitchId = req.getPitchId();
+     * if (newPitchId != null && !newPitchId.equals(booking.getPitch().getId())) {
+     * Pitch newPitch = pitchService.getPitchById(newPitchId);
+     * booking.setPitch(newPitch);
+     * }
+     * 
+     * // 3. Validate thời gian
+     * this.validateTime(req.getStartDateTime(), req.getEndDateTime());
+     * 
+     * // 4. Check trùng giờ (dành cho pitch hiện tại)
+     * boolean exists = this.bookingRepository
+     * .existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+     * booking.getPitch().getId(),
+     * req.getEndDateTime(),
+     * req.getStartDateTime(),
+     * booking.getId());
+     * 
+     * if (exists)
+     * throw new BadRequestException("Khung giờ này đã được đặt");
+     * 
+     * // 5. Update các trường còn lại
+     * booking.setStartDateTime(req.getStartDateTime());
+     * booking.setEndDateTime(req.getEndDateTime());
+     * booking.setShirtOption(
+     * req.getShirtOption() != null ? req.getShirtOption() :
+     * ShirtOptionEnum.WITHOUT_PITCH_SHIRT);
+     * booking.setContactPhone(resolveContactPhone(booking.getUser(),
+     * req.getContactPhone()));
+     * 
+     * // 6. Lưu và trả response
+     * bookingRepository.save(booking);
+     * return convertToResUpdateBookingDTO(booking);
+     * }
+     */
+
     @Transactional
-    public ResUpdateBookingDTO updateBooking(@NonNull Long id, ReqUpdateBookingDTO req) throws IdInvalidException {
+    public ResUpdateBookingDTO updateBooking(@NonNull Long id, ReqUpdateBookingDTO req)
+            throws IdInvalidException {
+
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IdInvalidException("Booking không tồn tại"));
 
-        // 1. Nếu admin muốn đổi user
+        // 1. Đổi user (nếu có)
         if (req.getUserId() != null && !req.getUserId().equals(booking.getUser().getId())) {
             User newUser = userService.getUserById(req.getUserId());
             if (newUser.getStatus() != UserStatusEnum.ACTIVE) {
@@ -146,42 +228,63 @@ public class BookingService {
             booking.setUser(newUser);
         }
 
-        // 2. Nếu admin muốn đổi pitch
-        
-        // if (req.getPitchId() != null && !req.getPitchId().equals(booking.getPitch().getId())) {
-        //     Pitch newPitch = pitchService.getPitchById(req.getPitchId());
-        //     booking.setPitch(newPitch);
-        // }
-
+        // 2. Đổi pitch (nếu có)
+        Pitch pitch = booking.getPitch();
         Long newPitchId = req.getPitchId();
-        if (newPitchId != null && !newPitchId.equals(booking.getPitch().getId())) {
-            Pitch newPitch = pitchService.getPitchById(newPitchId);
-            booking.setPitch(newPitch);
+        if (newPitchId != null && !newPitchId.equals(pitch.getId())) {
+            pitch = pitchService.getPitchById(newPitchId);
+            booking.setPitch(pitch);
         }
 
-        // 3. Validate thời gian
-        this.validateTime(req.getStartDateTime(), req.getEndDateTime());
+        // 3. Resolve thời gian
+        LocalDateTime start = req.getStartDateTime() != null
+                ? req.getStartDateTime()
+                : booking.getStartDateTime();
 
-        // 4. Check trùng giờ (dành cho pitch hiện tại)
-        boolean exists = this.bookingRepository
+        LocalDateTime end = req.getEndDateTime() != null
+                ? req.getEndDateTime()
+                : booking.getEndDateTime();
+
+        // 4. Validate thời gian
+        this.validateTime(start, end);
+
+        // 5. Check trùng lịch
+        boolean exists = bookingRepository
                 .existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
-                        booking.getPitch().getId(),
-                        req.getEndDateTime(),
-                        req.getStartDateTime(),
+                        pitch.getId(),
+                        end,
+                        start,
                         booking.getId());
 
-        if (exists)
+        if (exists) {
             throw new BadRequestException("Khung giờ này đã được đặt");
+        }
 
-        // 5. Update các trường còn lại
-        booking.setStartDateTime(req.getStartDateTime());
-        booking.setEndDateTime(req.getEndDateTime());
+        // 6. Tính lại duration
+        long durationMinutes = calculateDurationMinutes(start, end);
+
+        // 7. Tính lại giá
+        BigDecimal pricePerHour = pitch.getPricePerHour();
+        if (pricePerHour == null || pricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Giá sân không hợp lệ");
+        }
+
+        BigDecimal totalPrice = calculateTotalPrice(pricePerHour, durationMinutes);
+
+        // 8. Update fields
+        booking.setStartDateTime(start);
+        booking.setEndDateTime(end);
+        booking.setDurationMinutes(durationMinutes);
+        booking.setTotalPrice(totalPrice);
         booking.setShirtOption(
-                req.getShirtOption() != null ? req.getShirtOption() : ShirtOptionEnum.WITHOUT_PITCH_SHIRT);
-        booking.setContactPhone(resolveContactPhone(booking.getUser(), req.getContactPhone()));
-
-        // 6. Lưu và trả response
+                req.getShirtOption() != null
+                        ? req.getShirtOption()
+                        : booking.getShirtOption());
+        booking.setContactPhone(
+                resolveContactPhone(booking.getUser(), req.getContactPhone()));
+        // 9. Save
         bookingRepository.save(booking);
+
         return convertToResUpdateBookingDTO(booking);
     }
 
@@ -192,8 +295,6 @@ public class BookingService {
         this.getBookingById(id);
         this.bookingRepository.deleteById(id);
     }
-
-    // ==============HELPER===========
 
     // xử lý thời gian
 
@@ -244,6 +345,8 @@ public class BookingService {
                 booking.getEndDateTime(),
                 booking.getShirtOption(),
                 booking.getContactPhone(),
+                booking.getDurationMinutes(),
+                booking.getTotalPrice(),
                 booking.getCreatedAt(),
                 booking.getCreatedBy());
     }
@@ -258,7 +361,8 @@ public class BookingService {
         res.setEndDateTime(booking.getEndDateTime());
         res.setShirtOption(booking.getShirtOption());
         res.setContactPhone(booking.getContactPhone());
-
+        res.setDurationMinutes(booking.getDurationMinutes());
+        res.setTotalPrice(booking.getTotalPrice());
         // Thông tin user
         res.setUserId(booking.getUser() != null ? booking.getUser().getId() : null);
         String userName = (booking.getUser() != null && booking.getUser().getFullName() != null
@@ -296,6 +400,8 @@ public class BookingService {
         res.setEndDateTime(booking.getEndDateTime());
         res.setShirtOption(booking.getShirtOption());
         res.setContactPhone(booking.getContactPhone());
+        res.setDurationMinutes(booking.getDurationMinutes());
+        res.setTotalPrice(booking.getTotalPrice());
         res.setCreatedAt(booking.getCreatedAt());
         res.setUpdatedAt(booking.getUpdatedAt());
         res.setCreatedBy(booking.getCreatedBy());
@@ -334,10 +440,35 @@ public class BookingService {
     }
 
     // Get all bookings của user
-    public ResultPaginationDTO getAllBookingsOfUser(String email, @NonNull Pageable pageable) throws IdInvalidException {
+    public ResultPaginationDTO getAllBookingsOfUser(String email, @NonNull Pageable pageable)
+            throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
         Specification<Booking> spec = (root, query, cb) -> cb.equal(root.get("user").get("id"), user.getId());
         return getAllBookings(spec, pageable);
+    }
+
+    private static final long MIN_BOOKING_MINUTES = 30;
+
+    private long calculateDurationMinutes(LocalDateTime start, LocalDateTime end) {
+        long minutes = Duration.between(start, end).toMinutes();
+
+        if (minutes < MIN_BOOKING_MINUTES) {
+            throw new BadRequestException(
+                    minutes <= 0
+                            ? "Thời lượng đặt sân không hợp lệ"
+                            : "Thời lượng đặt sân tối thiểu là " + MIN_BOOKING_MINUTES + " phút");
+        }
+
+        return minutes;
+    }
+
+    private BigDecimal calculateTotalPrice(
+            BigDecimal pricePerHour,
+            long durationMinutes) {
+        // pricePerHour * durationMinutes / 60
+        return pricePerHour
+                .multiply(BigDecimal.valueOf(durationMinutes))
+                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.example.backend.domain.response.booking;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 
@@ -21,6 +22,8 @@ public class ResUpdateBookingDTO {
     private LocalDateTime endDateTime;
     private ShirtOptionEnum shirtOption;
     private String contactPhone;
+    private Long durationMinutes;
+    private BigDecimal totalPrice;
     private Instant updatedAt;
     private String updatedBy;
 }

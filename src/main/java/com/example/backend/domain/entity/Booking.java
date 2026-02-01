@@ -1,11 +1,13 @@
 package com.example.backend.domain.entity;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -48,10 +50,16 @@ public class Booking {
     private LocalDateTime startDateTime;
     private LocalDateTime endDateTime;
 
+    @Column(nullable = false)
+    private Long durationMinutes; // thời lượng phút // số phút thuê
+
     @Enumerated(EnumType.STRING)
     private ShirtOptionEnum shirtOption = ShirtOptionEnum.WITHOUT_PITCH_SHIRT;
 
     private String contactPhone;
+
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal totalPrice; // Tổng tiền
 
     private Instant createdAt;
     private Instant updatedAt;
