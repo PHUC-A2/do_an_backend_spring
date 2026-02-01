@@ -1,6 +1,7 @@
 package com.example.backend.repository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -11,16 +12,21 @@ import com.example.backend.domain.entity.Booking;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpecificationExecutor<Booking> {
 
-    // check trùng lịch
-    boolean existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
-            Long pitchId,
-            LocalDateTime end,
-            LocalDateTime start);
+        // check trùng lịch
+        boolean existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
+                        Long pitchId,
+                        LocalDateTime end,
+                        LocalDateTime start);
 
-    boolean existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
-            Long pitchId,
-            LocalDateTime end,
-            LocalDateTime start,
-            Long id);
+        boolean existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+                        Long pitchId,
+                        LocalDateTime end,
+                        LocalDateTime start,
+                        Long id);
+
+        List<Booking> findByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
+                        Long pitchId,
+                        LocalDateTime end,
+                        LocalDateTime start);
 
 }
