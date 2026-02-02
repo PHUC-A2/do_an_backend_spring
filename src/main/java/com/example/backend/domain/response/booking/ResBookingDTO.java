@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 
+import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,6 +25,8 @@ public class ResBookingDTO {
     private String contactPhone;
     private Long durationMinutes;
     private BigDecimal totalPrice;
+    private BookingStatusEnum status;
+    private Boolean deletedByUser;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

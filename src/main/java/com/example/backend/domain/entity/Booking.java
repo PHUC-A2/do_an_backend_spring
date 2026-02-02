@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
 
 import jakarta.persistence.Column;
@@ -60,6 +61,13 @@ public class Booking {
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalPrice; // Tổng tiền
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private BookingStatusEnum status = BookingStatusEnum.ACTIVE; // dùng để xử lý lịch sử đặt sân(thêm,sửa ko cần thêm )
+
+    @Column(nullable = false)
+    private Boolean deletedByUser = false;// dùng để xử lý lịch sử đặt sân(thêm,sửa ko cần thêm )
 
     private Instant createdAt;
     private Instant updatedAt;

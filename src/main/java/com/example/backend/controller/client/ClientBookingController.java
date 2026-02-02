@@ -88,4 +88,17 @@ public class ClientBookingController {
         bookingService.deleteBookingForUser(id, email);
         return ResponseEntity.ok().build();
     }
+
+    @PatchMapping("/bookings/{id}/cancel")
+    @ApiMessage("Hủy booking của chính user")
+    public ResponseEntity<Void> cancelBooking(@PathVariable @NonNull Long id)
+            throws IdInvalidException {
+
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy user login"));
+
+        bookingService.cancelBookingForUser(id, email);
+        return ResponseEntity.ok().build();
+    }
+
 }

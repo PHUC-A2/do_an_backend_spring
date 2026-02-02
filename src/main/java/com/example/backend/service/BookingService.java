@@ -25,6 +25,7 @@ import com.example.backend.domain.response.booking.ResUpdateBookingDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.BadRequestException;
@@ -402,6 +403,8 @@ public class BookingService {
         res.setContactPhone(booking.getContactPhone());
         res.setDurationMinutes(booking.getDurationMinutes());
         res.setTotalPrice(booking.getTotalPrice());
+        res.setStatus(booking.getStatus());
+        res.setDeletedByUser(booking.getDeletedByUser());
         res.setCreatedAt(booking.getCreatedAt());
         res.setUpdatedAt(booking.getUpdatedAt());
         res.setCreatedBy(booking.getCreatedBy());
@@ -414,6 +417,11 @@ public class BookingService {
     public Booking getBookingByIdForUser(@NonNull Long id, String email) throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
         Booking booking = getBookingById(id);
+
+        if (booking.getDeletedByUser()) {
+            throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
+        }
+
         if (!booking.getUser().getId().equals(user.getId())) {
             throw new BadRequestException("Không có quyền truy cập booking này");
         }
@@ -422,28 +430,56 @@ public class BookingService {
 
     // Update booking của user
     @Transactional
-    public ResUpdateBookingDTO updateBookingForUser(@NonNull Long id, ReqUpdateBookingDTO req, String email)
-            throws IdInvalidException {
+    public ResUpdateBookingDTO updateBookingForUser(
+            @NonNull Long id,
+            ReqUpdateBookingDTO req,
+            String email) throws IdInvalidException {
 
-        // Chỉ để kiểm tra quyền truy cập
-        this.getBookingByIdForUser(id, email);
+        Booking booking = getBookingByIdForUser(id, email);
 
-        // Thực hiện update
+        if (booking.getStatus() == BookingStatusEnum.CANCELLED) {
+            throw new BadRequestException("Không thể cập nhật booking đã bị hủy");
+        }
+
+        if (booking.getDeletedByUser()) {
+            throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
+        }
+
         return this.updateBooking(id, req);
     }
 
     // Delete booking của user
+    // @Transactional
+    // public void deleteBookingForUser(@NonNull Long id, String email) throws
+    // IdInvalidException {
+    // this.getBookingByIdForUser(id, email);
+    // this.deleteBooking(id);
+    // }
     @Transactional
     public void deleteBookingForUser(@NonNull Long id, String email) throws IdInvalidException {
-        this.getBookingByIdForUser(id, email);
-        this.deleteBooking(id);
+        Booking booking = getBookingByIdForUser(id, email);
+
+        if (booking.getDeletedByUser()) {
+            throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
+        }
+
+        // if (booking.getStatus() != BookingStatusEnum.CANCELLED) {
+        //     throw new BadRequestException("Vui lòng hủy booking trước khi xóa khỏi lịch sử");
+        // }
+
+        booking.setDeletedByUser(true);
+        bookingRepository.save(booking);
     }
 
     // Get all bookings của user
     public ResultPaginationDTO getAllBookingsOfUser(String email, @NonNull Pageable pageable)
             throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
-        Specification<Booking> spec = (root, query, cb) -> cb.equal(root.get("user").get("id"), user.getId());
+        // Specification<Booking> spec = (root, query, cb) ->
+        // cb.equal(root.get("user").get("id"), user.getId());
+        Specification<Booking> spec = (root, query, cb) -> cb.and(
+                cb.equal(root.get("user").get("id"), user.getId()),
+                cb.isFalse(root.get("deletedByUser")));
         return getAllBookings(spec, pageable);
     }
 
@@ -469,6 +505,28 @@ public class BookingService {
         return pricePerHour
                 .multiply(BigDecimal.valueOf(durationMinutes))
                 .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+    }
+
+    @Transactional
+    public void cancelBookingForUser(@NonNull Long id, String email) throws IdInvalidException {
+
+        Booking booking = getBookingByIdForUser(id, email);
+
+        if (booking.getStatus() == BookingStatusEnum.CANCELLED) {
+            throw new BadRequestException("Booking đã bị hủy");
+        }
+
+        // Không cho hủy khi đã bắt đầu
+        if (booking.getStartDateTime().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Không thể hủy booking đã hoặc đang diễn ra");
+        }
+
+        if (booking.getDeletedByUser()) {
+            throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
+        }
+
+        booking.setStatus(BookingStatusEnum.CANCELLED);
+        bookingRepository.save(booking);
     }
 
 }
