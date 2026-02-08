@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import com.example.backend.domain.entity.Booking;
+import com.example.backend.util.constant.booking.BookingStatusEnum;
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpecificationExecutor<Booking> {
@@ -24,9 +25,24 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime start,
                         Long id);
 
-        List<Booking> findByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
+
+        List<Booking> findByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
                         Long pitchId,
+                        BookingStatusEnum status,
                         LocalDateTime end,
                         LocalDateTime start);
+        
+        boolean existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
+                        Long pitchId,
+                        BookingStatusEnum status,
+                        LocalDateTime end,
+                        LocalDateTime start);
+
+        boolean existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+                        Long pitchId,
+                        BookingStatusEnum status,
+                        LocalDateTime end,
+                        LocalDateTime start,
+                        Long id);
 
 }

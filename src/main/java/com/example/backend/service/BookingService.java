@@ -251,8 +251,9 @@ public class BookingService {
 
         // 5. Check trùng lịch
         boolean exists = bookingRepository
-                .existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+                .existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
                         pitch.getId(),
+                        BookingStatusEnum.ACTIVE,
                         end,
                         start,
                         booking.getId());
@@ -311,8 +312,9 @@ public class BookingService {
     // khiểm tra trùng lịch
     private void checkOverlapping(Long pitchId, ReqCreateBookingDTO req) {
         boolean exists = bookingRepository
-                .existsByPitchIdAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
+                .existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
                         pitchId,
+                        BookingStatusEnum.ACTIVE,
                         req.getEndDateTime(),
                         req.getStartDateTime());
 

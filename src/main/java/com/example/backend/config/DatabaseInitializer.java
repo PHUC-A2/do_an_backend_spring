@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.backend.domain.entity.Permission;
 import com.example.backend.domain.entity.Role;
@@ -18,6 +19,7 @@ import com.example.backend.repository.UserRepository;
 import com.example.backend.util.constant.user.UserStatusEnum;
 
 @Service
+@Transactional
 public class DatabaseInitializer implements CommandLineRunner {
 
     private final PermissionRepository permissionRepository;
@@ -98,21 +100,45 @@ public class DatabaseInitializer implements CommandLineRunner {
             roleRepository.save(adminRole);
 
             // VIEW role: gắn VIEW_LIST & VIEW_DETAIL của PITCH + full CRUD BOOKING
+            // Set<Permission> viewPermissions = new HashSet<>();
+            // for (Permission p : allPermissions) {
+            //     if (p.getName().startsWith("PITCH_") &&
+            //             (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
+            //         viewPermissions.add(p);
+            //     }
+            //     if (p.getName().startsWith("BOOKING_")) {
+            //         viewPermissions.add(p); // full CRUD
+            //     }
+            // }
+            // Role viewRole = new Role();
+            // viewRole.setName("VIEW");
+            // viewRole.setDescription("Chỉ xem PITCH, full BOOKING");
+            // viewRole.setPermissions(viewPermissions);
+            // roleRepository.save(viewRole);
+            // VIEW role: gắn VIEW_LIST & VIEW_DETAIL của PITCH + BOOKING (CRU, không
+            // DELETE)
             Set<Permission> viewPermissions = new HashSet<>();
             for (Permission p : allPermissions) {
+
+                // PITCH: chỉ xem
                 if (p.getName().startsWith("PITCH_") &&
                         (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
                     viewPermissions.add(p);
                 }
-                if (p.getName().startsWith("BOOKING_")) {
-                    viewPermissions.add(p); // full CRUD
+
+                // BOOKING: cho C-R-U, KHÔNG cho D
+                if (p.getName().startsWith("BOOKING_")
+                        && !p.getName().equals("BOOKING_DELETE")) {
+                    viewPermissions.add(p);
                 }
             }
+
             Role viewRole = new Role();
             viewRole.setName("VIEW");
-            viewRole.setDescription("Chỉ xem PITCH, full BOOKING");
+            viewRole.setDescription("Chỉ xem PITCH, tạo/sửa booking (không được xóa)");
             viewRole.setPermissions(viewPermissions);
             roleRepository.save(viewRole);
+
         }
 
         // 3. Tạo USER admin nếu chưa có
@@ -131,6 +157,23 @@ public class DatabaseInitializer implements CommandLineRunner {
             }
 
             userRepository.save(adminUser);
+        }
+
+        // 4. Đảm bảo admin luôn có role ADMIN (FIX BUG)
+        Role adminRole = roleRepository.findByName("ADMIN");
+        if (adminRole != null) {
+            User adminUser = userRepository.findByEmail("admin@gmail.com");
+
+            if (adminUser != null) {
+                if (adminUser.getRoles() == null) {
+                    adminUser.setRoles(new HashSet<>());
+                }
+
+                if (!adminUser.getRoles().contains(adminRole)) {
+                    adminUser.getRoles().add(adminRole);
+                    userRepository.save(adminUser);
+                }
+            }
         }
 
         System.out.println(">>> END INIT DATABASE");
