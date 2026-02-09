@@ -13,11 +13,15 @@ import org.springframework.lang.Nullable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import org.springframework.util.StringUtils;
 import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.entity.User;
+import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.request.user.ReqCreateUserDTO;
 import com.example.backend.domain.request.user.ReqUpdateUserDTO;
+import com.example.backend.domain.response.account.AccountUserUpdateDTO;
+import com.example.backend.domain.response.account.ResUpdateAccountDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDTO;
@@ -28,6 +32,7 @@ import com.example.backend.domain.response.user.ResUserDetailDTO;
 import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.error.EmailInvalidException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -285,7 +290,7 @@ public class UserService {
 
         // 1. Check null
         // if (roleIds.equals(null)) {
-        //     throw new IdInvalidException("roleIds không được null");
+        // throw new IdInvalidException("roleIds không được null");
         // }
 
         // 2. Check user tồn tại
@@ -312,4 +317,56 @@ public class UserService {
         User savedUser = userRepository.save(user);
         return this.convertToResUserListDTO(savedUser);
     }
+
+    // res update account
+    public ResUpdateAccountDTO convertToResUpdateAccountDTO(User user) {
+
+        AccountUserUpdateDTO dto = new AccountUserUpdateDTO();
+        dto.setId(user.getId());
+        dto.setName(user.getName());
+        dto.setFullName(user.getFullName());
+        dto.setEmail(user.getEmail());
+        dto.setPhoneNumber(user.getPhoneNumber());
+        dto.setAvatarUrl(user.getAvatarUrl());
+
+        ResUpdateAccountDTO res = new ResUpdateAccountDTO();
+        res.setUser(dto);
+
+        return res;
+    }
+
+    // update account
+    public ResUpdateAccountDTO updateAccount(ReqUpdateAccountDTO req) {
+
+        // Lấy user từ token
+        // user từ token (client đặt)
+        String email = SecurityUtil.getCurrentUserLogin().isPresent()
+                ? SecurityUtil.getCurrentUserLogin().get()
+                : "";
+        User user = this.handleGetUserByUsername(email);
+
+        if (user == null) {
+            throw new RuntimeException("User not found");
+        }
+
+        if (req.getName() != null) {
+            user.setName(StringUtils.hasText(req.getName()) ? req.getName() : null);
+        }
+
+        if (req.getFullName() != null) {
+            user.setFullName(StringUtils.hasText(req.getFullName()) ? req.getFullName() : null);
+        }
+
+        if (req.getPhoneNumber() != null) {
+            user.setPhoneNumber(StringUtils.hasText(req.getPhoneNumber()) ? req.getPhoneNumber() : null);
+        }
+
+        if (req.getAvatarUrl() != null) {
+            user.setAvatarUrl(StringUtils.hasText(req.getAvatarUrl()) ? req.getAvatarUrl() : null);
+        }
+
+        User userSave = this.userRepository.save(user);
+        return this.convertToResUpdateAccountDTO(userSave);
+    }
+
 }

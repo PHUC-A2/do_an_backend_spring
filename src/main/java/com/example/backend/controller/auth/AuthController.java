@@ -17,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,10 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.entity.User;
+import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
 import com.example.backend.domain.request.auth.ReqLoginDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.response.account.AccountUserDTO;
 import com.example.backend.domain.response.account.ResAccountDTO;
+import com.example.backend.domain.response.account.ResUpdateAccountDTO;
 import com.example.backend.domain.response.common.MessageResponse;
 import com.example.backend.domain.response.login.JwtUserDTO;
 import com.example.backend.domain.response.login.LoginUserDTO;
@@ -388,6 +391,12 @@ public class AuthController {
 
                 return ResponseEntity.status(HttpStatus.CREATED)
                                 .body(new MessageResponse("Đăng ký tài khoản thành công"));
+        }
+
+        @PatchMapping("/auth/account/me")
+        @ApiMessage("Cập nhật tài khoản")
+        public ResponseEntity<ResUpdateAccountDTO> updateAccount(@Valid @RequestBody ReqUpdateAccountDTO dto) {
+                return ResponseEntity.ok(this.userService.updateAccount(dto));
         }
 
 }
