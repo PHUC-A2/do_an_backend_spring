@@ -8,6 +8,8 @@ import lombok.Getter;
 @Builder
 public class ResPaymentQRDTO {
 
+    private Long paymentId;
+
     private String paymentCode;
 
     private String bankCode; // VCB

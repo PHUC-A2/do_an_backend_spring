@@ -17,11 +17,11 @@ import com.example.backend.util.error.IdInvalidException;
 
 @RestController
 @RequestMapping("/api/v1/client")
-public class PaymentController {
+public class ClientPaymentController {
 
     private final PaymentService paymentService;
 
-    public PaymentController(PaymentService paymentService) {
+    public ClientPaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
     }
 
@@ -58,6 +58,19 @@ public class PaymentController {
         Payment payment = paymentService.getByCodeForUser(paymentCode, email);
         ResPaymentQRDTO res = paymentService.buildQR(payment);
         return ResponseEntity.ok(res);
+    }
+
+    @PatchMapping("/payments/{paymentId}/proof")
+    @ApiMessage("Upload ảnh minh chứng thanh toán")
+    public ResponseEntity<Void> uploadPaymentProof(
+            @PathVariable long paymentId,
+            @RequestParam String proofUrl) {
+
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy user login"));
+
+        paymentService.attachProof(paymentId, proofUrl, email);
+        return ResponseEntity.ok().build();
     }
 
 }

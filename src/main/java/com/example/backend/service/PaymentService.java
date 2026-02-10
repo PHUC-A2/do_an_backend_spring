@@ -101,6 +101,7 @@ public class PaymentService {
                 + "&accountName=" + URLEncoder.encode(accountName, StandardCharsets.UTF_8);
 
         return ResPaymentQRDTO.builder()
+                .paymentId(payment.getId())
                 .paymentCode(payment.getPaymentCode())
                 .bankCode(bankCode)
                 .accountNo(accountNo)
@@ -187,6 +188,26 @@ public class PaymentService {
                 .paidAt(dto.getPaidAt())
                 .createdAt(dto.getCreatedAt())
                 .build();
+    }
+
+    @Transactional
+    public void attachProof(long paymentId, String proofUrl, String email) {
+
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BadRequestException("Payment không tồn tại"));
+
+        Booking booking = payment.getBooking();
+
+        if (!email.equals(booking.getCreatedBy())) {
+            throw new BadRequestException("Bạn không có quyền upload minh chứng");
+        }
+
+        if (payment.getStatus() == PaymentStatusEnum.PAID) {
+            throw new BadRequestException("Payment đã thanh toán, không thể upload");
+        }
+
+        payment.setProofUrl(proofUrl);
+        paymentRepository.save(payment);
     }
 
 }

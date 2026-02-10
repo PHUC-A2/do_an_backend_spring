@@ -17,12 +17,12 @@ import com.example.backend.util.annotation.ApiMessage;
 import com.turkraft.springfilter.boot.Filter;
 
 @RestController
-@RequestMapping("/api/v1/admin")
-public class AdminPaymentController {
+@RequestMapping("/api/v1")
+public class PaymentController {
 
     private final PaymentService paymentService;
 
-    public AdminPaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
     }
 
