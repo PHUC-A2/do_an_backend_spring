@@ -12,7 +12,6 @@ import com.example.backend.domain.entity.Booking;
 import com.example.backend.domain.entity.Payment;
 import com.example.backend.domain.response.payment.ResPaymentQRDTO;
 import com.example.backend.repository.PaymentRepository;
-import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.payment.PaymentMethodEnum;
 import com.example.backend.util.constant.payment.PaymentStatusEnum;
 import com.example.backend.util.error.BadRequestException;
@@ -55,6 +54,7 @@ public class PaymentService {
             throw new BadRequestException("Booking đã có payment");
         }
 
+        // Status mặc định = PENDING (đã set trong entity)
         Payment payment = new Payment();
         payment.setBooking(booking);
         payment.setAmount(booking.getTotalPrice());
@@ -79,10 +79,6 @@ public class PaymentService {
 
         payment.setStatus(PaymentStatusEnum.PAID);
         payment.setPaidAt(Instant.now());
-
-        Booking booking = payment.getBooking();
-        booking.setStatus(BookingStatusEnum.PAID);
-
         paymentRepository.save(payment);
     }
 
@@ -91,7 +87,11 @@ public class PaymentService {
 
         if (payment.getMethod() == PaymentMethodEnum.CASH) {
             throw new BadRequestException(
-                    "Vui lòng thanh toán tiền mặt, không hỗ trợ QR cho hình thức này");
+                    "Thanh toán tiền mặt không hỗ trợ QR");
+        }
+
+        if (payment.getStatus() == PaymentStatusEnum.PAID) {
+            throw new BadRequestException("Payment đã thanh toán");
         }
 
         String vietQrUrl = "https://img.vietqr.io/image/"
