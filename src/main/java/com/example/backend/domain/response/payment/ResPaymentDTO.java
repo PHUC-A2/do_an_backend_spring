@@ -14,13 +14,17 @@ import lombok.Getter;
 public class ResPaymentDTO {
 
     private Long id;
+
+    private Long bookingId;
+    private String proofUrl;
+
     private String paymentCode;
     private BigDecimal amount;
     private String content;
 
     private PaymentStatusEnum status;
     private PaymentMethodEnum method;
-
+   
     private Instant paidAt;
     private Instant createdAt;
 }

@@ -52,6 +52,7 @@ public class Pitch {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerHour;
 
+    @Column(columnDefinition = "MEDIUMTEXT")
     private String pitchUrl;
 
     // lấy giờ ko lấy ngày

@@ -67,6 +67,9 @@ public class Payment {
     @Enumerated(EnumType.STRING)
     private PaymentMethodEnum method = PaymentMethodEnum.BANK_TRANSFER;
 
+    @Column(columnDefinition = "MEDIUMTEXT")
+    private String proofUrl; // ảnh chuyển khoản
+
     private Instant paidAt; // thời điểm thanh toán thành công
 
     private Instant createdAt;
