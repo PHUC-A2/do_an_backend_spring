@@ -1,0 +1,38 @@
+# Conversion to YAML from Properties formar report
+# Warnings:
+# - The yaml file had comments which are lost in the refactoring!
+spring:
+  application:
+    name: backend
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  datasource:
+    url: jdbc:mysql://localhost:3306/doan
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  data:
+    web:
+      pageable:
+        one-indexed-parameters: true
+backend:
+  jwt:
+    base64-secret: Tp4d4TKzrfaXkFdtIfO8IZjzPRc3+Lw2UnttJGpi9y+dou6mF6zxYT/x2DsjvdeQnTwrEDjTC/FktgoEDRH3wA==
+    access-token-validity-in-second: 604800
+    refresh-token-validity-in-second: 604800
+  upload-file:
+    base-uri: D:/B/project_ca_nhan/do_an/bai_lam/test_01/upload/
+server:
+  address: 0.0.0.0
+  port: 8080
+payment:
+  bank:
+    code: ${BANK_CODE}
+    account-no: ${BANK_ACCOUNT_NO}
+    account-name: ${BANK_ACCOUNT_NAME}

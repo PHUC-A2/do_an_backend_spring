@@ -1,0 +1,17 @@
+{"properties": [
+  {
+    "name": "payment.bank.code",
+    "type": "java.lang.String",
+    "description": "A description for 'payment.bank.code'"
+  },
+  {
+    "name": "payment.bank.account-no",
+    "type": "java.lang.String",
+    "description": "A description for 'payment.bank.account-no'"
+  },
+  {
+    "name": "payment.bank.account-name",
+    "type": "java.lang.String",
+    "description": "A description for 'payment.bank.account-name'"
+  }
+]}
