@@ -1,6 +1,5 @@
 package com.example.backend.config;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,53 +40,57 @@ public class DatabaseInitializer implements CommandLineRunner {
     public void run(String... args) throws Exception {
         System.out.println(">>> START INIT DATABASE");
 
-        long countPermissions = permissionRepository.count();
+        // long countPermissions = permissionRepository.count();
         long countRoles = roleRepository.count();
         long countUsers = userRepository.count();
 
         // 1. Tạo PERMISSION nếu chưa có
-        if (countPermissions == 0) {
-            List<Permission> permissions = new ArrayList<>();
 
-            // USER
-            permissions.add(createPermission("USER_VIEW_LIST", "Xem danh sách user"));
-            permissions.add(createPermission("USER_VIEW_DETAIL", "Xem chi tiết user"));
-            permissions.add(createPermission("USER_CREATE", "Tạo user"));
-            permissions.add(createPermission("USER_UPDATE", "Cập nhật user"));
-            permissions.add(createPermission("USER_DELETE", "Xóa user"));
-            permissions.add(createPermission("USER_ASSIGN_ROLE", "Gắn role cho user"));
+        // ================== INIT PERMISSIONS ==================
 
-            // ROLE
-            permissions.add(createPermission("ROLE_VIEW_LIST", "Xem danh sách role"));
-            permissions.add(createPermission("ROLE_VIEW_DETAIL", "Xem chi tiết role"));
-            permissions.add(createPermission("ROLE_CREATE", "Tạo role"));
-            permissions.add(createPermission("ROLE_UPDATE", "Cập nhật role"));
-            permissions.add(createPermission("ROLE_DELETE", "Xóa role"));
-            permissions.add(createPermission("ROLE_ASSIGN_PERMISSION", "Gắn permission cho role"));
+        // USER
+        createPermissionIfNotExists("USER_VIEW_LIST", "Xem danh sách user");
+        createPermissionIfNotExists("USER_VIEW_DETAIL", "Xem chi tiết user");
+        createPermissionIfNotExists("USER_CREATE", "Tạo user");
+        createPermissionIfNotExists("USER_UPDATE", "Cập nhật user");
+        createPermissionIfNotExists("USER_DELETE", "Xóa user");
+        createPermissionIfNotExists("USER_ASSIGN_ROLE", "Gắn role cho user");
 
-            // PERMISSION
-            permissions.add(createPermission("PERMISSION_VIEW_LIST", "Xem danh sách permission"));
-            permissions.add(createPermission("PERMISSION_VIEW_DETAIL", "Xem chi tiết permission"));
-            permissions.add(createPermission("PERMISSION_CREATE", "Tạo permission"));
-            permissions.add(createPermission("PERMISSION_UPDATE", "Cập nhật permission"));
-            permissions.add(createPermission("PERMISSION_DELETE", "Xóa permission"));
+        // ROLE
+        createPermissionIfNotExists("ROLE_VIEW_LIST", "Xem danh sách role");
+        createPermissionIfNotExists("ROLE_VIEW_DETAIL", "Xem chi tiết role");
+        createPermissionIfNotExists("ROLE_CREATE", "Tạo role");
+        createPermissionIfNotExists("ROLE_UPDATE", "Cập nhật role");
+        createPermissionIfNotExists("ROLE_DELETE", "Xóa role");
+        createPermissionIfNotExists("ROLE_ASSIGN_PERMISSION", "Gắn permission cho role");
 
-            // PITCH
-            permissions.add(createPermission("PITCH_VIEW_LIST", "Xem danh sách pitch"));
-            permissions.add(createPermission("PITCH_VIEW_DETAIL", "Xem chi tiết pitch"));
-            permissions.add(createPermission("PITCH_CREATE", "Tạo pitch"));
-            permissions.add(createPermission("PITCH_UPDATE", "Cập nhật pitch"));
-            permissions.add(createPermission("PITCH_DELETE", "Xóa pitch"));
+        // PERMISSION
+        createPermissionIfNotExists("PERMISSION_VIEW_LIST", "Xem danh sách permission");
+        createPermissionIfNotExists("PERMISSION_VIEW_DETAIL", "Xem chi tiết permission");
+        createPermissionIfNotExists("PERMISSION_CREATE", "Tạo permission");
+        createPermissionIfNotExists("PERMISSION_UPDATE", "Cập nhật permission");
+        createPermissionIfNotExists("PERMISSION_DELETE", "Xóa permission");
 
-            // BOOKING
-            permissions.add(createPermission("BOOKING_VIEW_LIST", "Xem danh sách booking"));
-            permissions.add(createPermission("BOOKING_VIEW_DETAIL", "Xem chi tiết booking"));
-            permissions.add(createPermission("BOOKING_CREATE", "Tạo booking"));
-            permissions.add(createPermission("BOOKING_UPDATE", "Cập nhật booking"));
-            permissions.add(createPermission("BOOKING_DELETE", "Xóa booking"));
+        // PITCH
+        createPermissionIfNotExists("PITCH_VIEW_LIST", "Xem danh sách pitch");
+        createPermissionIfNotExists("PITCH_VIEW_DETAIL", "Xem chi tiết pitch");
+        createPermissionIfNotExists("PITCH_CREATE", "Tạo pitch");
+        createPermissionIfNotExists("PITCH_UPDATE", "Cập nhật pitch");
+        createPermissionIfNotExists("PITCH_DELETE", "Xóa pitch");
 
-            permissionRepository.saveAll(permissions);
-        }
+        // BOOKING
+        createPermissionIfNotExists("BOOKING_VIEW_LIST", "Xem danh sách booking");
+        createPermissionIfNotExists("BOOKING_VIEW_DETAIL", "Xem chi tiết booking");
+        createPermissionIfNotExists("BOOKING_CREATE", "Tạo booking");
+        createPermissionIfNotExists("BOOKING_UPDATE", "Cập nhật booking");
+        createPermissionIfNotExists("BOOKING_DELETE", "Xóa booking");
+
+        // PAYMENT
+        createPermissionIfNotExists("PAYMENT_VIEW_LIST", "Danh sách payment chờ xác nhận");
+        createPermissionIfNotExists("PAYMENT_UPDATE", "Admin xác nhận payment đã thanh toán");
+
+        // REVENUE
+        createPermissionIfNotExists("REVENUE_VIEW_DETAIL", "Lấy thống kê doanh thu");
 
         // 2. Tạo ROLES nếu chưa có
         if (countRoles == 0) {
@@ -102,13 +105,14 @@ public class DatabaseInitializer implements CommandLineRunner {
             // VIEW role: gắn VIEW_LIST & VIEW_DETAIL của PITCH + full CRUD BOOKING
             // Set<Permission> viewPermissions = new HashSet<>();
             // for (Permission p : allPermissions) {
-            //     if (p.getName().startsWith("PITCH_") &&
-            //             (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
-            //         viewPermissions.add(p);
-            //     }
-            //     if (p.getName().startsWith("BOOKING_")) {
-            //         viewPermissions.add(p); // full CRUD
-            //     }
+            // if (p.getName().startsWith("PITCH_") &&
+            // (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL")))
+            // {
+            // viewPermissions.add(p);
+            // }
+            // if (p.getName().startsWith("BOOKING_")) {
+            // viewPermissions.add(p); // full CRUD
+            // }
             // }
             // Role viewRole = new Role();
             // viewRole.setName("VIEW");
@@ -179,10 +183,20 @@ public class DatabaseInitializer implements CommandLineRunner {
         System.out.println(">>> END INIT DATABASE");
     }
 
-    private Permission createPermission(String name, String description) {
-        Permission p = new Permission();
-        p.setName(name);
-        p.setDescription(description);
-        return p;
+    // private Permission createPermission(String name, String description) {
+    // Permission p = new Permission();
+    // p.setName(name);
+    // p.setDescription(description);
+    // return p;
+    // }
+
+    private void createPermissionIfNotExists(String name, String description) {
+        if (!permissionRepository.existsByName(name)) {
+            Permission permission = new Permission();
+            permission.setName(name);
+            permission.setDescription(description);
+            permissionRepository.save(permission);
+        }
     }
+
 }

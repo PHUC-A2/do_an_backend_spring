@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -28,6 +29,7 @@ public class PaymentController {
 
     @GetMapping("/payments")
     @ApiMessage("Danh sách payment chờ xác nhận")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PAYMENT_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllPayments(
             @Filter Specification<Payment> spec,
             @NonNull Pageable pageable) {
@@ -37,6 +39,7 @@ public class PaymentController {
 
     @PutMapping("/payments/{id}/confirm")
     @ApiMessage("Admin xác nhận payment đã thanh toán")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('PAYMENT_UPDATE')")
     public ResponseEntity<Void> confirmPayment(@PathVariable Long id) {
 
         this.paymentService.adminConfirmPaid(id);
