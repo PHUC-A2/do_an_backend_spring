@@ -25,13 +25,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime start,
                         Long id);
 
-
         List<Booking> findByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
                         Long pitchId,
                         BookingStatusEnum status,
                         LocalDateTime end,
                         LocalDateTime start);
-        
+
         boolean existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
                         Long pitchId,
                         BookingStatusEnum status,
@@ -44,5 +43,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime end,
                         LocalDateTime start,
                         Long id);
+
+        long countByStatus(BookingStatusEnum status);
 
 }
