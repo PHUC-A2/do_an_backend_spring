@@ -26,6 +26,10 @@ public class DatabaseInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    private static final String ADMIN_EMAIL = "admin@gmail.com";
+    private static final String ADMIN_NAME = "Admin";
+    private static final String ADMIN_PASSWORD = "123456";
+
     public DatabaseInitializer(PermissionRepository permissionRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
@@ -41,9 +45,6 @@ public class DatabaseInitializer implements CommandLineRunner {
         System.out.println(">>> START INIT DATABASE");
 
         // long countPermissions = permissionRepository.count();
-        long countRoles = roleRepository.count();
-        long countUsers = userRepository.count();
-
         // 1. Tạo PERMISSION nếu chưa có
 
         // ================== INIT PERMISSIONS ==================
@@ -93,35 +94,55 @@ public class DatabaseInitializer implements CommandLineRunner {
         createPermissionIfNotExists("REVENUE_VIEW_DETAIL", "Lấy thống kê doanh thu");
 
         // 2. Tạo ROLES nếu chưa có
-        if (countRoles == 0) {
-            List<Permission> allPermissions = permissionRepository.findAll();
+        // if (countRoles == 0) {
+        //     List<Permission> allPermissions = permissionRepository.findAll();
 
-            // ADMIN role (full quyền, gán sau user)
-            Role adminRole = new Role();
+        //     // ADMIN role (full quyền, gán sau user)
+        //     Role adminRole = new Role();
+        //     adminRole.setName("ADMIN");
+        //     adminRole.setDescription("Admin full quyền");
+        //     roleRepository.save(adminRole);
+
+        //     Set<Permission> viewPermissions = new HashSet<>();
+        //     for (Permission p : allPermissions) {
+
+        //         // PITCH: chỉ xem
+        //         if (p.getName().startsWith("PITCH_") &&
+        //                 (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
+        //             viewPermissions.add(p);
+        //         }
+
+        //         // BOOKING: cho C-R-U, KHÔNG cho D
+        //         if (p.getName().startsWith("BOOKING_")
+        //                 && !p.getName().equals("BOOKING_DELETE")) {
+        //             viewPermissions.add(p);
+        //         }
+        //     }
+
+        //     Role viewRole = new Role();
+        //     viewRole.setName("VIEW");
+        //     viewRole.setDescription("Chỉ xem PITCH, tạo/sửa booking (không được xóa)");
+        //     viewRole.setPermissions(viewPermissions);
+        //     roleRepository.save(viewRole);
+
+        // }
+
+        // ================== INIT ROLE ADMIN ==================
+        Role adminRole = roleRepository.findByName("ADMIN");
+        if (adminRole == null) {
+            adminRole = new Role();
             adminRole.setName("ADMIN");
-            adminRole.setDescription("Admin full quyền");
+            adminRole.setDescription("Admin full quyền (không cần gắn permission)");
             roleRepository.save(adminRole);
+        }
 
-            // VIEW role: gắn VIEW_LIST & VIEW_DETAIL của PITCH + full CRUD BOOKING
-            // Set<Permission> viewPermissions = new HashSet<>();
-            // for (Permission p : allPermissions) {
-            // if (p.getName().startsWith("PITCH_") &&
-            // (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL")))
-            // {
-            // viewPermissions.add(p);
-            // }
-            // if (p.getName().startsWith("BOOKING_")) {
-            // viewPermissions.add(p); // full CRUD
-            // }
-            // }
-            // Role viewRole = new Role();
-            // viewRole.setName("VIEW");
-            // viewRole.setDescription("Chỉ xem PITCH, full BOOKING");
-            // viewRole.setPermissions(viewPermissions);
-            // roleRepository.save(viewRole);
-            // VIEW role: gắn VIEW_LIST & VIEW_DETAIL của PITCH + BOOKING (CRU, không
-            // DELETE)
+        // ================== INIT ROLE VIEW ==================
+        Role viewRole = roleRepository.findByName("VIEW");
+        if (viewRole == null) {
+
+            List<Permission> allPermissions = permissionRepository.findAll();
             Set<Permission> viewPermissions = new HashSet<>();
+
             for (Permission p : allPermissions) {
 
                 // PITCH: chỉ xem
@@ -130,30 +151,31 @@ public class DatabaseInitializer implements CommandLineRunner {
                     viewPermissions.add(p);
                 }
 
-                // BOOKING: cho C-R-U, KHÔNG cho D
+                // BOOKING: cho C-R-U, KHÔNG cho DELETE
                 if (p.getName().startsWith("BOOKING_")
                         && !p.getName().equals("BOOKING_DELETE")) {
                     viewPermissions.add(p);
                 }
             }
 
-            Role viewRole = new Role();
+            viewRole = new Role();
             viewRole.setName("VIEW");
-            viewRole.setDescription("Chỉ xem PITCH, tạo/sửa booking (không được xóa)");
+            viewRole.setDescription("User thường - xem pitch, tạo/sửa booking");
             viewRole.setPermissions(viewPermissions);
-            roleRepository.save(viewRole);
 
+            roleRepository.save(viewRole);
         }
 
         // 3. Tạo USER admin nếu chưa có
-        if (countUsers == 0) {
+        User existingAdmin = userRepository.findByEmail(ADMIN_EMAIL);
+
+        if (existingAdmin == null) {
             User adminUser = new User();
-            adminUser.setEmail("admin@gmail.com");
-            adminUser.setName("Admin");
-            adminUser.setPassword(passwordEncoder.encode("123456"));
+            adminUser.setEmail(ADMIN_EMAIL);
+            adminUser.setName(ADMIN_NAME);
+            adminUser.setPassword(passwordEncoder.encode(ADMIN_PASSWORD));
             adminUser.setStatus(UserStatusEnum.ACTIVE);
 
-            Role adminRole = roleRepository.findByName("ADMIN");
             if (adminRole != null) {
                 Set<Role> roles = new HashSet<>();
                 roles.add(adminRole);
@@ -164,9 +186,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
 
         // 4. Đảm bảo admin luôn có role ADMIN (FIX BUG)
-        Role adminRole = roleRepository.findByName("ADMIN");
         if (adminRole != null) {
-            User adminUser = userRepository.findByEmail("admin@gmail.com");
+            User adminUser = userRepository.findByEmail(ADMIN_EMAIL);
 
             if (adminUser != null) {
                 if (adminUser.getRoles() == null) {

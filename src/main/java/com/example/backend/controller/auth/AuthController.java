@@ -28,6 +28,8 @@ import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
 import com.example.backend.domain.request.auth.ReqLoginDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
+import com.example.backend.domain.request.auth.resetpw.ReqForgotPasswordDTO;
+import com.example.backend.domain.request.auth.resetpw.ReqResetPasswordDTO;
 import com.example.backend.domain.response.account.AccountUserDTO;
 import com.example.backend.domain.response.account.ResAccountDTO;
 import com.example.backend.domain.response.account.ResUpdateAccountDTO;
@@ -38,6 +40,8 @@ import com.example.backend.domain.response.login.ResLoginDTO;
 import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
 import com.example.backend.repository.RoleRepository;
+import com.example.backend.service.AuthService;
+import com.example.backend.service.EmailService;
 import com.example.backend.service.UserService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
@@ -55,18 +59,28 @@ public class AuthController {
         private final UserService userService;
         private final PasswordEncoder passwordEncoder;
         private final RoleRepository roleRepository;
+        private final AuthService authService;
+        private final EmailService emailService;
 
         @Value("${backend.jwt.refresh-token-validity-in-second}")
         private long refreshTokenExpiration;
 
-        public AuthController(AuthenticationManagerBuilder authenticationManagerBuilder,
-                        SecurityUtil securityUtil, UserService userService, PasswordEncoder passwordEncoder,
-                        RoleRepository roleRepository) {
+        public AuthController(
+                        AuthenticationManagerBuilder authenticationManagerBuilder,
+                        SecurityUtil securityUtil,
+                        UserService userService,
+                        PasswordEncoder passwordEncoder,
+                        RoleRepository roleRepository,
+                        AuthService authService,
+                        EmailService emailService) {
+
                 this.authenticationManagerBuilder = authenticationManagerBuilder;
                 this.securityUtil = securityUtil;
                 this.userService = userService;
                 this.passwordEncoder = passwordEncoder;
                 this.roleRepository = roleRepository;
+                this.authService = authService;
+                this.emailService = emailService;
         }
 
         @PostMapping("/auth/login")
@@ -397,6 +411,34 @@ public class AuthController {
         @ApiMessage("Cập nhật tài khoản")
         public ResponseEntity<ResUpdateAccountDTO> updateAccount(@Valid @RequestBody ReqUpdateAccountDTO dto) {
                 return ResponseEntity.ok(this.userService.updateAccount(dto));
+        }
+
+        // Quên pass
+        @PostMapping("/auth/forgot-password")
+        public ResponseEntity<String> forgot(@RequestBody ReqForgotPasswordDTO request) {
+                authService.forgotPassword(request.getEmail());
+                return ResponseEntity.ok("Nếu email tồn tại, OTP đã được gửi");
+        }
+
+        @PatchMapping("/auth/reset-password")
+        @ApiMessage("Đặt lại mật khẩu")
+        public ResponseEntity<MessageResponse> resetPassword(
+                        @RequestBody ReqResetPasswordDTO request)
+                        throws EmailInvalidException {
+
+                authService.resetPassword(
+                                request.getEmail(),
+                                request.getOtp(),
+                                request.getNewPassword());
+
+                return ResponseEntity.ok(
+                                new MessageResponse("Đổi mật khẩu thành công"));
+        }
+
+        @PostMapping("/test-mail")
+        public ResponseEntity<Void> testMail() {
+                this.emailService.sendOtp("phucbv.k63cntt-b@utb.edu.vn", "123456");
+                return ResponseEntity.ok(null);
         }
 
 }
