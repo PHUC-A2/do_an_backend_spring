@@ -44,6 +44,8 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime start,
                         Long id);
 
+        long countByDeletedByUserFalse();
+
         long countByStatus(BookingStatusEnum status);
 
 }

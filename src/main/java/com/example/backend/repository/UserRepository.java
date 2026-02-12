@@ -35,4 +35,7 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     })
     @NonNull
     Page<User> findAll(@Nullable Specification<User> spec, @NonNull Pageable pageable);
+
+    long count();
+
 }
