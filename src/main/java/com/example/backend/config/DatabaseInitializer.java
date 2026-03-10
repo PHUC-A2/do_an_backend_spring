@@ -25,7 +25,9 @@ public class DatabaseInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-
+    /**
+     * Có thể thêm bao nhiêu Admin tùy ý
+     */
     private static final String ADMIN_EMAIL = "admin@gmail.com";
     private static final String ADMIN_NAME = "Admin";
     private static final String ADMIN_PASSWORD = "123456";
@@ -95,35 +97,36 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // 2. Tạo ROLES nếu chưa có
         // if (countRoles == 0) {
-        //     List<Permission> allPermissions = permissionRepository.findAll();
+        // List<Permission> allPermissions = permissionRepository.findAll();
 
-        //     // ADMIN role (full quyền, gán sau user)
-        //     Role adminRole = new Role();
-        //     adminRole.setName("ADMIN");
-        //     adminRole.setDescription("Admin full quyền");
-        //     roleRepository.save(adminRole);
+        // // ADMIN role (full quyền, gán sau user)
+        // Role adminRole = new Role();
+        // adminRole.setName("ADMIN");
+        // adminRole.setDescription("Admin full quyền");
+        // roleRepository.save(adminRole);
 
-        //     Set<Permission> viewPermissions = new HashSet<>();
-        //     for (Permission p : allPermissions) {
+        // Set<Permission> viewPermissions = new HashSet<>();
+        // for (Permission p : allPermissions) {
 
-        //         // PITCH: chỉ xem
-        //         if (p.getName().startsWith("PITCH_") &&
-        //                 (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
-        //             viewPermissions.add(p);
-        //         }
+        // // PITCH: chỉ xem
+        // if (p.getName().startsWith("PITCH_") &&
+        // (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL")))
+        // {
+        // viewPermissions.add(p);
+        // }
 
-        //         // BOOKING: cho C-R-U, KHÔNG cho D
-        //         if (p.getName().startsWith("BOOKING_")
-        //                 && !p.getName().equals("BOOKING_DELETE")) {
-        //             viewPermissions.add(p);
-        //         }
-        //     }
+        // // BOOKING: cho C-R-U, KHÔNG cho D
+        // if (p.getName().startsWith("BOOKING_")
+        // && !p.getName().equals("BOOKING_DELETE")) {
+        // viewPermissions.add(p);
+        // }
+        // }
 
-        //     Role viewRole = new Role();
-        //     viewRole.setName("VIEW");
-        //     viewRole.setDescription("Chỉ xem PITCH, tạo/sửa booking (không được xóa)");
-        //     viewRole.setPermissions(viewPermissions);
-        //     roleRepository.save(viewRole);
+        // Role viewRole = new Role();
+        // viewRole.setName("VIEW");
+        // viewRole.setDescription("Chỉ xem PITCH, tạo/sửa booking (không được xóa)");
+        // viewRole.setPermissions(viewPermissions);
+        // roleRepository.save(viewRole);
 
         // }
 
