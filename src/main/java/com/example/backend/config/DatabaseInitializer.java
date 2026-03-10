@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -28,9 +29,19 @@ public class DatabaseInitializer implements CommandLineRunner {
     /**
      * Có thể thêm bao nhiêu Admin tùy ý
      */
-    private static final String ADMIN_EMAIL = "admin@gmail.com";
-    private static final String ADMIN_NAME = "Admin";
-    private static final String ADMIN_PASSWORD = "123456";
+
+    @Value("${admin.email}")
+    private String ADMIN_EMAIL;
+
+    @Value("${admin.name}")
+    private String ADMIN_NAME;
+
+    @Value("${admin.password}")
+    private String ADMIN_PASSWORD;
+
+    // private static final String ADMIN_EMAIL = "admin@gmail.com";
+    // private static final String ADMIN_NAME = "Admin";
+    // private static final String ADMIN_PASSWORD = "123456";
 
     public DatabaseInitializer(PermissionRepository permissionRepository,
             RoleRepository roleRepository,

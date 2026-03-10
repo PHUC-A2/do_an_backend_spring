@@ -13,5 +13,25 @@
     "name": "payment.bank.account-name",
     "type": "java.lang.String",
     "description": "A description for 'payment.bank.account-name'"
+  },
+  {
+    "name": "admin.email",
+    "type": "java.lang.String",
+    "description": "A description for 'admin.email'"
+  },
+  {
+    "name": "admin.email",
+    "type": "java.lang.String",
+    "description": "A description for 'admin.email'"
+  },
+  {
+    "name": "admin.name",
+    "type": "java.lang.String",
+    "description": "A description for 'admin.name'"
+  },
+  {
+    "name": "admin.password",
+    "type": "java.lang.String",
+    "description": "A description for 'admin.password'"
   }
 ]}
