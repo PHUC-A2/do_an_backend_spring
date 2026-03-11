@@ -31,7 +31,11 @@ public class CorsConfig implements WebMvcConfigurer {
                         "https://unvigorous-nondeleteriously-mandi.ngrok-free.dev",
                         "http://tbusport.utb.edu.vn",
                         "http://192.168.42.30:3000",
-                        "http://116.104.86.41:3000"
+                        "http://116.104.86.41:3000",
+                        "http://localhost:5173",
+                        "https://tbusport.utb.edu.vn",
+                        "http://tbusport.utb.edu.vn:3000",
+                        "http://tbusport.utb.edu.vn"
                 // "http://localhost:8080/api/v1/products?page=1&size=12"
                 ));
 
