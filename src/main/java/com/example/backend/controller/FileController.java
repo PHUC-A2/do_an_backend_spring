@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+// import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import com.example.backend.domain.response.file.ResUploadFileDTO;
 import com.example.backend.service.FileService;
@@ -34,8 +34,7 @@ public class FileController {
     @ApiMessage("Upload image file")
     public ResponseEntity<ResUploadFileDTO> uploadFile(
             @RequestParam("file") MultipartFile file,
-            @NonNull
-            @RequestParam(name = "folder", defaultValue = "products") String folder)
+            @NonNull @RequestParam(name = "folder", defaultValue = "products") String folder)
             throws IOException, StorageException {
 
         if (file == null || file.isEmpty()) {
@@ -43,7 +42,7 @@ public class FileController {
         }
 
         String fileName = file.getOriginalFilename();
-        
+
         if (fileName == null || fileName.isBlank()) {
             throw new StorageException("File name is invalid");
         }
@@ -61,11 +60,12 @@ public class FileController {
 
         // 🔹 Tạo URL static (dùng luôn được)
         // VD: http://localhost:8080/storage/products/173019231231-cat.png
-        String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/storage/")
-                .path(folder + "/")
-                .path(uploadFileName)
-                .toUriString();
+        // String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
+        // .path("/storage/")
+        // .path(folder + "/")
+        // .path(uploadFileName)
+        // .toUriString();
+        String imageUrl = "/storage/" + folder + "/" + uploadFileName;
 
         // 🔹 Trả về JSON
         ResUploadFileDTO response = new ResUploadFileDTO(uploadFileName, Instant.now(), imageUrl);
