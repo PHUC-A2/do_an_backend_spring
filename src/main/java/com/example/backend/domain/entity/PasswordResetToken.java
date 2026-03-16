@@ -31,7 +31,12 @@ public class PasswordResetToken {
     @Column(nullable = false)
     private String email;
 
+    private Long userId;
+
     private String otp;
+
+    @Column(nullable = false)
+    private String type;
 
     private LocalDateTime expiryTime;
 }

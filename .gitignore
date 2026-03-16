@@ -37,3 +37,5 @@ build/
 .env.prod
 .env.dev
 cong_thuc.md
+PROMPT_VIBE_CODE.md
+API_CONTRACT.md

@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
 import com.example.backend.service.UserService;
+import com.example.backend.util.constant.user.UserStatusEnum;
 
 @Component("userDetailsService") // dùng để tạo ra UserDetailsService tự động chuyển u->U
 public class UserDetailsCustom implements UserDetailsService {
@@ -29,6 +30,16 @@ public class UserDetailsCustom implements UserDetailsService {
 
         if (user == null) {
             throw new UsernameNotFoundException("Username/password không hợp lệ");
+        }
+
+        if (user.getStatus() != UserStatusEnum.ACTIVE) {
+            String msg = switch (user.getStatus()) {
+                case BANNED -> "Tài khoản đã bị khóa";
+                case INACTIVE -> "Tài khoản đã bị vô hiệu hóa";
+                case PENDING_VERIFICATION -> "Tài khoản chưa xác thực email";
+                default -> "Tài khoản không hợp lệ";
+            };
+            throw new UsernameNotFoundException(msg);
         }
 
         // LẤY PERMISSION

@@ -2,6 +2,7 @@ package com.example.backend.controller.auth;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -27,7 +28,9 @@ import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
 import com.example.backend.domain.request.auth.ReqLoginDTO;
+import com.example.backend.domain.request.auth.ReqResendOtpDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
+import com.example.backend.domain.request.auth.ReqVerifyEmailDTO;
 import com.example.backend.domain.request.auth.resetpw.ReqForgotPasswordDTO;
 import com.example.backend.domain.request.auth.resetpw.ReqResetPasswordDTO;
 import com.example.backend.domain.response.account.AccountUserDTO;
@@ -45,6 +48,8 @@ import com.example.backend.service.EmailService;
 import com.example.backend.service.UserService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
+import com.example.backend.util.constant.user.UserStatusEnum;
+import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.EmailInvalidException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -87,6 +92,18 @@ public class AuthController {
         @ApiMessage("Đăng nhập")
         public ResponseEntity<ResLoginDTO> login(@Valid @RequestBody ReqLoginDTO loginDto) {
 
+                User currentUserDB = userService.handleGetUserByUsername(loginDto.getUsername());
+                if (currentUserDB != null && currentUserDB.getStatus() != UserStatusEnum.ACTIVE) {
+                        String msg = switch (currentUserDB.getStatus()) {
+                                case PENDING_VERIFICATION ->
+                                        "Tài khoản chưa xác thực email. Vui lòng kiểm tra hộp thư.";
+                                case BANNED -> "Tài khoản đã bị khóa.";
+                                case INACTIVE -> "Tài khoản đã bị vô hiệu hóa.";
+                                default -> "Tài khoản không hợp lệ.";
+                        };
+                        throw new BadRequestException(msg);
+                }
+
                 // 1. Đưa username + password vào Spring Security để xác thực
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
                                 loginDto.getUsername(),
@@ -105,8 +122,6 @@ public class AuthController {
                 ResLoginDTO res = new ResLoginDTO();
 
                 // 5. Lấy thông tin user từ database
-                User currentUserDB = userService.handleGetUserByUsername(loginDto.getUsername());
-
                 if (currentUserDB != null) {
 
                         // 6. DTO dùng để trả về cho client (response)
@@ -392,6 +407,7 @@ public class AuthController {
                 // hardpasswd
                 String hardPassword = this.passwordEncoder.encode(dto.getPassword());
                 user.setPassword(hardPassword);
+                user.setStatus(UserStatusEnum.PENDING_VERIFICATION);
 
                 // Lấy role VIEW và gắn mặc định
                 Role viewRole = this.roleRepository.findByName("VIEW");
@@ -401,10 +417,30 @@ public class AuthController {
                         user.setRoles(roles);
                 }
 
-                this.userService.createUserForRegister(user);
+                User savedUser = this.userService.createUserForRegister(user);
+                this.authService.sendEmailVerificationOtp(savedUser.getId(), savedUser.getEmail());
 
                 return ResponseEntity.status(HttpStatus.CREATED)
-                                .body(new MessageResponse("Đăng ký tài khoản thành công"));
+                                .body(new MessageResponse(Map.of(
+                                                "message",
+                                                "Đăng ký tài khoản thành công. Vui lòng xác thực email bằng OTP đã gửi.",
+                                                "userId", savedUser.getId(),
+                                                "email", savedUser.getEmail())));
+        }
+
+        @PostMapping("/auth/verify-email")
+        @ApiMessage("Xác thực email")
+        public ResponseEntity<MessageResponse> verifyEmail(@Valid @RequestBody ReqVerifyEmailDTO request)
+                        throws EmailInvalidException {
+                authService.verifyEmail(request.getUserId(), request.getEmail(), request.getOtp());
+                return ResponseEntity.ok(new MessageResponse("Xác thực email thành công. Vui lòng đăng nhập."));
+        }
+
+        @PostMapping("/auth/resend-otp")
+        @ApiMessage("Gửi lại OTP xác thực email")
+        public ResponseEntity<MessageResponse> resendOtp(@Valid @RequestBody ReqResendOtpDTO request) {
+                authService.resendVerificationOtp(request.getUserId(), request.getEmail());
+                return ResponseEntity.ok(new MessageResponse("Đã gửi lại OTP xác thực email"));
         }
 
         @PatchMapping("/auth/account/me")
@@ -415,9 +451,10 @@ public class AuthController {
 
         // Quên pass
         @PostMapping("/auth/forgot-password")
-        public ResponseEntity<String> forgot(@RequestBody ReqForgotPasswordDTO request) {
+        @ApiMessage("Quên mật khẩu")
+        public ResponseEntity<MessageResponse> forgot(@RequestBody ReqForgotPasswordDTO request) {
                 authService.forgotPassword(request.getEmail());
-                return ResponseEntity.ok("Nếu email tồn tại, OTP đã được gửi");
+                return ResponseEntity.ok(new MessageResponse("Nếu email tồn tại, OTP đã được gửi"));
         }
 
         @PatchMapping("/auth/reset-password")

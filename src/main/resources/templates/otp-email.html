@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title th:text="${subject}">Mã OTP</title>
+</head>
+
+<body
+    style="margin:0;padding:0;background:#eef2f7;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;color:#12263a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+        style="background:#eef2f7;padding:28px 12px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
+                    style="max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dbe4ef;box-shadow:0 14px 34px rgba(18,38,58,0.08);">
+                    <tr>
+                        <td
+                            style="background:linear-gradient(135deg,#0a2342 0%,#0f766e 100%);padding:26px 28px;color:#ffffff;">
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td align="left"
+                                        style="font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:0.9;">
+                                        TUB Sport
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top:12px;font-size:24px;line-height:1.35;font-weight:700;"
+                                        th:text="${subject}">
+                                        Xác thực mã OTP
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding-top:8px;font-size:14px;line-height:1.6;opacity:0.95;"
+                                        th:text="${subtitle}">
+                                        Nền tảng đặt sân bóng nhanh và dễ dàng.
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding:28px;">
+                            <p style="margin:0 0 16px;font-size:15px;line-height:1.7;" th:text="${greeting}">
+                                Xin chào,
+                            </p>
+
+                            <p style="margin:0 0 20px;font-size:15px;line-height:1.7;" th:text="${message}">
+                                Đây là mã OTP của bạn:
+                            </p>
+
+                            <div style="text-align:center;margin:0 0 20px;">
+                                <div
+                                    style="display:inline-block;background:#0a2342;color:#ffffff;padding:14px 26px;border-radius:12px;font-size:32px;font-weight:800;letter-spacing:8px;">
+                                    <span th:text="${otp}">123456</span>
+                                </div>
+                            </div>
+
+                            <div
+                                style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:14px 16px;margin-bottom:22px;">
+                                <span style="font-size:14px;color:#065f46;font-weight:700;">Thời gian hiệu lực:</span>
+                                <span style="font-size:14px;color:#0f766e;" th:text="${expiryNotice}">Mã OTP có hiệu lực
+                                    trong 5 phút.</span>
+                            </div>
+
+                            <p style="margin:0 0 10px;font-size:14px;line-height:1.7;color:#3f556b;">
+                                Không chia sẻ mã OTP với bất kỳ ai, kể cả nhân viên hỗ trợ.
+                            </p>
+                            <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#3f556b;"
+                                th:text="${footer}">
+                                Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email.
+                            </p>
+
+                            <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 2px;">
+                                <tr>
+                                    <td align="center" style="border-radius:10px;background:#0f766e;">
+                                        <a th:href="${websiteUrl}" href="http://tbusport.utb.edu.vn/"
+                                            style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">
+                                            Truy cập TUB Sport
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="padding:16px 28px 24px;font-size:12px;color:#7f8fa3;text-align:center;line-height:1.6;">
+                            Email được gửi tự động từ hệ thống TUB Sport.<br />
+                            Vui lòng không trả lời email này.
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>

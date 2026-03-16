@@ -10,13 +10,35 @@ import com.example.backend.domain.entity.PasswordResetToken;
 
 @Repository
 public interface PasswordResetTokenRepository
-        extends JpaRepository<PasswordResetToken, Long> {
+                extends JpaRepository<PasswordResetToken, Long> {
 
-    Optional<PasswordResetToken> findByEmailAndOtpAndExpiryTimeAfter(
-            String email,
-            String otp,
-            LocalDateTime now);
+        Optional<PasswordResetToken> findByEmailAndOtpAndTypeAndExpiryTimeAfter(
+                        String email,
+                        String otp,
+                        String type,
+                        LocalDateTime now);
 
-    void deleteAllByEmail(String email);
+        Optional<PasswordResetToken> findByUserIdAndEmailAndOtpAndTypeAndExpiryTimeAfter(
+                        Long userId,
+                        String email,
+                        String otp,
+                        String type,
+                        LocalDateTime now);
+
+        Optional<PasswordResetToken> findByEmailAndOtpAndExpiryTimeAfter(
+                        String email,
+                        String otp,
+                        LocalDateTime now);
+
+        Optional<PasswordResetToken> findTopByEmailAndTypeOrderByIdDesc(String email, String type);
+
+        Optional<PasswordResetToken> findTopByUserIdAndEmailAndTypeOrderByIdDesc(Long userId, String email,
+                        String type);
+
+        void deleteAllByEmailAndType(String email, String type);
+
+        void deleteAllByUserIdAndEmailAndType(Long userId, String email, String type);
+
+        void deleteAllByEmail(String email);
 
 }

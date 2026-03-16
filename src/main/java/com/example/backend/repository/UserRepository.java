@@ -16,26 +16,28 @@ import com.example.backend.domain.entity.User;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
-    boolean existsByEmail(String email);
+        boolean existsByEmail(String email);
 
-    User findByEmail(String email);
+        User findByEmail(String email);
 
-    User findByRefreshTokenAndEmail(String token, String email);
+        User findByRefreshTokenAndEmail(String token, String email);
 
-    @EntityGraph(attributePaths = {
-            "roles",
-            "roles.permissions"
-    })
-    Optional<User> findWithRolesAndPermissionsById(Long id);
+        Optional<User> findByIdAndEmail(Long id, String email);
 
-    @Override
-    @EntityGraph(attributePaths = {
-            "roles",
-            "roles.permissions"
-    })
-    @NonNull
-    Page<User> findAll(@Nullable Specification<User> spec, @NonNull Pageable pageable);
+        @EntityGraph(attributePaths = {
+                        "roles",
+                        "roles.permissions"
+        })
+        Optional<User> findWithRolesAndPermissionsById(Long id);
 
-    long count();
+        @Override
+        @EntityGraph(attributePaths = {
+                        "roles",
+                        "roles.permissions"
+        })
+        @NonNull
+        Page<User> findAll(@Nullable Specification<User> spec, @NonNull Pageable pageable);
+
+        long count();
 
 }
