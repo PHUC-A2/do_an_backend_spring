@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -19,6 +20,7 @@ import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.request.user.ReqCreateUserDTO;
+import com.example.backend.domain.request.user.ReqUpdateUserStatusDTO;
 import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.account.AccountUserUpdateDTO;
 import com.example.backend.domain.response.account.ResUpdateAccountDTO;
@@ -27,12 +29,15 @@ import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
 import com.example.backend.domain.response.user.ResCreateUserDTO;
+import com.example.backend.domain.response.user.ResUpdateUserStatusDTO;
 import com.example.backend.domain.response.user.ResUpdateUserDTO;
 import com.example.backend.domain.response.user.ResUserDetailDTO;
 import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.user.UserStatusEnum;
+import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.EmailInvalidException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -74,7 +79,21 @@ public class UserService {
 
     public ResultPaginationDTO getAllUsers(@Nullable Specification<User> spec, @NonNull Pageable pageable) {
 
-        Page<User> pageUser = this.userRepository.findAll(spec, pageable);
+        return getAllUsers(spec, null, pageable);
+    }
+
+    public ResultPaginationDTO getAllUsers(
+            @Nullable Specification<User> spec,
+            @Nullable UserStatusEnum status,
+            @NonNull Pageable pageable) {
+
+        Specification<User> finalSpec = spec;
+        if (status != null) {
+            Specification<User> statusSpec = (root, query, cb) -> cb.equal(root.get("status"), status);
+            finalSpec = finalSpec == null ? statusSpec : finalSpec.and(statusSpec);
+        }
+
+        Page<User> pageUser = this.userRepository.findAll(finalSpec, pageable);
 
         ResultPaginationDTO rs = new ResultPaginationDTO();
         ResultPaginationDTO.Meta meta = new ResultPaginationDTO.Meta();
@@ -185,6 +204,8 @@ public class UserService {
         res.setPhoneNumber(user.getPhoneNumber());
         res.setAvatarUrl(user.getAvatarUrl());
         res.setStatus(user.getStatus());
+        res.setBannedReason(user.getBannedReason());
+        res.setBannedAt(user.getBannedAt());
         res.setCreatedAt(user.getCreatedAt());
         res.setCreatedBy(user.getCreatedBy());
         res.setUpdatedAt(user.getUpdatedAt());
@@ -217,6 +238,8 @@ public class UserService {
         res.setPhoneNumber(user.getPhoneNumber());
         res.setAvatarUrl(user.getAvatarUrl());
         res.setStatus(user.getStatus());
+        res.setBannedReason(user.getBannedReason());
+        res.setBannedAt(user.getBannedAt());
         res.setCreatedAt(user.getCreatedAt());
         res.setCreatedBy(user.getCreatedBy());
         res.setUpdatedAt(user.getUpdatedAt());
@@ -367,6 +390,52 @@ public class UserService {
 
         User userSave = this.userRepository.save(user);
         return this.convertToResUpdateAccountDTO(userSave);
+    }
+
+    public ResUpdateUserStatusDTO updateUserStatus(Long id, ReqUpdateUserStatusDTO req) throws IdInvalidException {
+        User user = this.getUserById(id);
+
+        UserStatusEnum targetStatus = req.getStatus();
+        if (targetStatus != UserStatusEnum.ACTIVE
+                && targetStatus != UserStatusEnum.BANNED
+                && targetStatus != UserStatusEnum.INACTIVE) {
+            throw new BadRequestException("Status chỉ chấp nhận ACTIVE, BANNED, INACTIVE");
+        }
+
+        String currentEmail = SecurityUtil.getCurrentUserLogin().orElse("");
+        User currentUser = this.handleGetUserByUsername(currentEmail);
+
+        if (targetStatus == UserStatusEnum.BANNED) {
+            if (currentUser != null && currentUser.getId().equals(user.getId())) {
+                throw new BadRequestException("Không thể khóa chính mình");
+            }
+
+            boolean isTargetAdmin = user.getRoles().stream().anyMatch(r -> "ADMIN".equals(r.getName()));
+            if (isTargetAdmin) {
+                throw new BadRequestException("Không thể khóa tài khoản ADMIN");
+            }
+
+            user.setStatus(UserStatusEnum.BANNED);
+            user.setBannedReason(req.getReason());
+            user.setBannedAt(Instant.now());
+            user.setRefreshToken(null);
+        } else if (targetStatus == UserStatusEnum.ACTIVE) {
+            user.setStatus(UserStatusEnum.ACTIVE);
+            user.setBannedReason(null);
+            user.setBannedAt(null);
+        } else {
+            user.setStatus(UserStatusEnum.INACTIVE);
+            user.setBannedReason(null);
+            user.setBannedAt(null);
+        }
+
+        User saved = this.userRepository.save(user);
+        return new ResUpdateUserStatusDTO(
+                saved.getId(),
+                saved.getStatus(),
+                saved.getBannedReason(),
+                saved.getBannedAt(),
+                saved.getUpdatedAt());
     }
 
 }

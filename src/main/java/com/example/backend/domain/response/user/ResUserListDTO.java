@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ResUserListDTO {
-    
+
     private Long id;
     private String name;
     private String fullName;
@@ -22,6 +22,8 @@ public class ResUserListDTO {
     private String phoneNumber;
     private String avatarUrl;
     private UserStatusEnum status;
+    private String bannedReason;
+    private Instant bannedAt;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

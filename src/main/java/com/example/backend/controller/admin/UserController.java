@@ -11,14 +11,17 @@ import org.springframework.web.bind.annotation.*;
 import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.user.ReqAssignRolesToUserDTO;
 import com.example.backend.domain.request.user.ReqCreateUserDTO;
+import com.example.backend.domain.request.user.ReqUpdateUserStatusDTO;
 import com.example.backend.domain.request.user.ReqUpdateUserDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.user.ResCreateUserDTO;
+import com.example.backend.domain.response.user.ResUpdateUserStatusDTO;
 import com.example.backend.domain.response.user.ResUpdateUserDTO;
 import com.example.backend.domain.response.user.ResUserDetailDTO;
 import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.service.UserService;
 import com.example.backend.util.annotation.ApiMessage;
+import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.EmailInvalidException;
 import com.example.backend.util.error.IdInvalidException;
 import com.turkraft.springfilter.boot.Filter;
@@ -51,10 +54,22 @@ public class UserController {
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllUsers(
             @Filter Specification<User> spec,
+            @RequestParam(value = "status", required = false) UserStatusEnum status,
             @NonNull Pageable pageable) {
 
         return ResponseEntity.ok(
-                this.userService.getAllUsers(spec, pageable));
+                this.userService.getAllUsers(spec, status, pageable));
+    }
+
+    @PatchMapping("/users/{id}/status")
+    @ApiMessage("Cập nhật trạng thái người dùng")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_UPDATE')")
+    public ResponseEntity<ResUpdateUserStatusDTO> updateUserStatus(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody ReqUpdateUserStatusDTO req)
+            throws IdInvalidException {
+
+        return ResponseEntity.ok(this.userService.updateUserStatus(id, req));
     }
 
     @GetMapping("/users/{id}")

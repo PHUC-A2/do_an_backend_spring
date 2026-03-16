@@ -37,6 +37,7 @@ import com.example.backend.domain.response.account.AccountUserDTO;
 import com.example.backend.domain.response.account.ResAccountDTO;
 import com.example.backend.domain.response.account.ResUpdateAccountDTO;
 import com.example.backend.domain.response.common.MessageResponse;
+import com.example.backend.domain.response.common.RestResponse;
 import com.example.backend.domain.response.login.JwtUserDTO;
 import com.example.backend.domain.response.login.LoginUserDTO;
 import com.example.backend.domain.response.login.ResLoginDTO;
@@ -240,7 +241,7 @@ public class AuthController {
 
         @GetMapping("/auth/refresh")
         @ApiMessage("Lấy refresh_token của người dùng")
-        public ResponseEntity<ResLoginDTO> getRefreshToken(
+        public ResponseEntity<?> getRefreshToken(
                         // @CookieValue(name = "refresh_token", defaultValue = "abc") String
                         // refreshToken)
                         @CookieValue(name = "refresh_token", required = false) String refreshToken) {
@@ -278,6 +279,27 @@ public class AuthController {
                                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                                                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
                                                 .build();
+                        }
+
+                        if (currentUser.getStatus() == UserStatusEnum.BANNED) {
+                                ResponseCookie deleteCookie = ResponseCookie
+                                                .from("refresh_token", "")
+                                                .httpOnly(true)
+                                                .secure(false)
+                                                .sameSite("Lax")
+                                                .path("/")
+                                                .maxAge(0)
+                                                .build();
+
+                                RestResponse<Object> response = new RestResponse<>();
+                                response.setStatusCode(HttpStatus.UNAUTHORIZED.value());
+                                response.setError("Unauthorized");
+                                response.setMessage("Tài khoản đã bị khóa.");
+                                response.setData(null);
+
+                                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                                                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                                                .body(response);
                         }
                 } catch (Exception e) {
                         ResponseCookie deleteCookie = ResponseCookie
