@@ -38,4 +38,4 @@ build/
 .env.dev
 cong_thuc.md
 PROMPT_VIBE_CODE.md
-API_CONTRACT.md
+API_CONTRACT.mdsrc/main/resources/firebase-service-account.json
