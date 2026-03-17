@@ -22,6 +22,7 @@ import com.example.backend.repository.PaymentRepository;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.payment.PaymentMethodEnum;
 import com.example.backend.util.constant.payment.PaymentStatusEnum;
+import com.example.backend.util.constant.notification.NotificationTypeEnum;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -33,6 +34,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final BookingService bookingService;
+    private final NotificationService notificationService;
 
     @Value("${payment.bank.code}")
     private String bankCode;
@@ -45,9 +47,11 @@ public class PaymentService {
 
     public PaymentService(
             PaymentRepository paymentRepository,
-            BookingService bookingService) {
+            BookingService bookingService,
+            NotificationService notificationService) {
         this.paymentRepository = paymentRepository;
         this.bookingService = bookingService;
+        this.notificationService = notificationService;
     }
 
     public Payment createPayment(long bookingId, PaymentMethodEnum method) throws IdInvalidException {
@@ -151,6 +155,13 @@ public class PaymentService {
         payment.setPaidAt(Instant.now());
         booking.setStatus(BookingStatusEnum.PAID);
         paymentRepository.save(payment);
+
+        // Gửi thông báo xác nhận thanh toán
+        String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "sân";
+        String msg = String.format("Thanh toán xác nhận! Booking #%d – %s lúc %s đã được thanh toán.",
+                booking.getId(), pitchName,
+                booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.PAYMENT_CONFIRMED, msg);
     }
 
     // get all
@@ -176,17 +187,38 @@ public class PaymentService {
 
     // convert
     public ResPaymentDTO convertToResPaymentDTO(Payment dto) {
+        Booking booking = dto.getBooking();
+        var user = booking != null ? booking.getUser() : null;
+        var pitch = booking != null ? booking.getPitch() : null;
+
         return ResPaymentDTO.builder()
                 .id(dto.getId())
-                .bookingId(dto.getBooking().getId())
+                .bookingId(booking != null ? booking.getId() : null)
                 .proofUrl(dto.getProofUrl())
                 .paymentCode(dto.getPaymentCode())
                 .amount(dto.getAmount())
                 .content(dto.getContent())
                 .status(dto.getStatus())
                 .method(dto.getMethod())
+                // user info
+                .userId(user != null ? user.getId() : null)
+                .userName(user != null ? user.getName() : null)
+                .userFullName(user != null ? user.getFullName() : null)
+                .userEmail(user != null ? user.getEmail() : null)
+                .userPhone(user != null ? user.getPhoneNumber() : null)
+                .userAvatarUrl(user != null ? user.getAvatarUrl() : null)
+                // booking info
+                .pitchName(pitch != null ? pitch.getName() : null)
+                .contactPhone(booking != null ? booking.getContactPhone() : null)
+                .bookingStart(booking != null && booking.getStartDateTime() != null
+                        ? booking.getStartDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant() : null)
+                .bookingEnd(booking != null && booking.getEndDateTime() != null
+                        ? booking.getEndDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant() : null)
                 .paidAt(dto.getPaidAt())
                 .createdAt(dto.getCreatedAt())
+                .updatedAt(dto.getUpdatedAt())
+                .createdBy(dto.getCreatedBy())
+                .updatedBy(dto.getUpdatedBy())
                 .build();
     }
 

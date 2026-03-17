@@ -28,6 +28,7 @@ import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
+import com.example.backend.util.constant.notification.NotificationTypeEnum;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -39,11 +40,14 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final UserService userService;
     private final PitchService pitchService;
+    private final NotificationService notificationService;
 
-    public BookingService(BookingRepository bookingRepository, UserService userService, PitchService pitchService) {
+    public BookingService(BookingRepository bookingRepository, UserService userService, PitchService pitchService,
+            NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
         this.userService = userService;
         this.pitchService = pitchService;
+        this.notificationService = notificationService;
     }
 
     //
@@ -118,7 +122,14 @@ public class BookingService {
 
         this.bookingRepository.save(booking);
 
-        // 12. Trả response
+        // 12. Gửi thông báo đặt sân thành công
+        String pitchName = pitch.getName() != null ? pitch.getName() : "sân";
+        String notifMsg = String.format("Đặt sân thành công! Booking #%d – %s lúc %s",
+                booking.getId(), pitchName,
+                booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
+        notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_CREATED, notifMsg);
+
+        // 13. Trả response
         return this.convertToResCreateBookingDTO(booking);
     }
 

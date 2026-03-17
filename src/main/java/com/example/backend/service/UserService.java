@@ -284,6 +284,14 @@ public class UserService {
         }
     }
 
+    public void updateFcmToken(String email, String fcmToken) {
+        User user = this.handleGetUserByUsername(email);
+        if (user != null) {
+            user.setFcmToken(fcmToken);
+            this.userRepository.save(user);
+        }
+    }
+
     public User getUserByRefreshTokenAndEmail(String token, String email) {
         return this.userRepository.findByRefreshTokenAndEmail(token, email);
     }

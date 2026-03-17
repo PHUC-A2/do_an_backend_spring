@@ -51,6 +51,12 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime start,
                         Long id);
 
+        // Reminder: bookings starting between two times
+        List<Booking> findByStatusInAndStartDateTimeBetween(
+                        List<BookingStatusEnum> statuses,
+                        LocalDateTime from,
+                        LocalDateTime to);
+
         long countByDeletedByUserFalse();
 
         long countByStatus(BookingStatusEnum status);

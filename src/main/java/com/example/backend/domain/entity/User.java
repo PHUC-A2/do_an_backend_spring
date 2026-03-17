@@ -62,6 +62,9 @@ public class User {
     @Column(columnDefinition = "MEDIUMTEXT")
     private String bannedReason;
 
+    @Column(columnDefinition = "TEXT")
+    private String fcmToken;
+
     private Instant bannedAt;
 
     @ManyToMany(fetch = FetchType.LAZY)

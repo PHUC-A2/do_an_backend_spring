@@ -24,7 +24,24 @@ public class ResPaymentDTO {
 
     private PaymentStatusEnum status;
     private PaymentMethodEnum method;
-   
+
+    // Người thanh toán (từ booking.user)
+    private Long userId;
+    private String userName;
+    private String userFullName;
+    private String userEmail;
+    private String userPhone;
+    private String userAvatarUrl;
+
+    // Thông tin booking
+    private String pitchName;
+    private String contactPhone;
+    private Instant bookingStart;
+    private Instant bookingEnd;
+
     private Instant paidAt;
     private Instant createdAt;
+    private Instant updatedAt;
+    private String createdBy;
+    private String updatedBy;
 }
