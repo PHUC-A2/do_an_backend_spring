@@ -53,4 +53,8 @@ public class ReqCreatePitchDTO {
     @Max(value = 180, message = "Kinh độ tối đa là 180")
     private Double longitude;
 
+    private Double length;   // chiều dài sân (mét)
+    private Double width;    // chiều rộng sân (mét)
+    private Double height;   // chiều cao lưới / không gian đứng
+    private String imageUrl; // tên file ảnh, ví dụ: pitch_01.jpg
 }

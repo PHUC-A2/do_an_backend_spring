@@ -31,6 +31,13 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime end,
                         LocalDateTime start);
 
+        // Timeline: query nhiều status cùng lúc (ACTIVE + PAID, bỏ CANCELLED)
+        List<Booking> findByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
+                        Long pitchId,
+                        List<BookingStatusEnum> statuses,
+                        LocalDateTime end,
+                        LocalDateTime start);
+
         boolean existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
                         Long pitchId,
                         BookingStatusEnum status,

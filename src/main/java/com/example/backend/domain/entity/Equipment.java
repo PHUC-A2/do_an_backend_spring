@@ -2,13 +2,11 @@ package com.example.backend.domain.entity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
 import com.example.backend.util.SecurityUtil;
-import com.example.backend.util.constant.pitch.PitchStatusEnum;
-import com.example.backend.util.constant.pitch.PitchTypeEnum;
+import com.example.backend.util.constant.equipment.EquipmentStatusEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
@@ -24,19 +22,19 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "pitches")
+@Table(name = "equipments")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Pitch {
+public class Equipment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,42 +42,28 @@ public class Pitch {
     private Long id;
 
     @Column(nullable = false)
-    private String name;
+    private String name; // tên thiết bị (bóng, áo, nón...)
 
-    @Enumerated(EnumType.STRING)
-    private PitchTypeEnum pitchType = PitchTypeEnum.SEVEN;
+    private String description; // mô tả
+
+    @Column(nullable = false)
+    private Integer totalQuantity; // tổng số lượng
+
+    @Column(nullable = false)
+    private Integer availableQuantity; // số lượng có thể cho mượn hiện tại
 
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal pricePerHour;
+    private BigDecimal price; // giá trị thiết bị (dùng khi tính phí nếu mất/hỏng)
 
-    @Column(columnDefinition = "MEDIUMTEXT")
-    private String pitchUrl;
-
-    // lấy giờ ko lấy ngày
-    private LocalTime openTime;
-    private LocalTime closeTime;
-
-    private boolean open24h;
+    private String imageUrl; // tên file ảnh, ví dụ: ball.jpg
 
     @Enumerated(EnumType.STRING)
-    private PitchStatusEnum status = PitchStatusEnum.ACTIVE;
-
-    private String address;
-
     @Column(nullable = false)
-    private Double latitude; // vĩ dộ
+    private EquipmentStatusEnum status = EquipmentStatusEnum.ACTIVE;
 
-    @Column(nullable = false)
-    private Double longitude; // kinh độ
-
-    private Double length;   // chiều dài sân (mét)
-    private Double width;    // chiều rộng sân (mét)
-    private Double height;   // chiều cao lưới / không gian đứng (mét)
-    private String imageUrl; // tên file ảnh, ví dụ: pitch_01.jpg
-
-    @OneToMany(mappedBy = "pitch", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "equipment", fetch = FetchType.LAZY)
     @JsonIgnore
-    private List<Booking> bookings = new ArrayList<>();
+    private List<BookingEquipment> bookingEquipments = new ArrayList<>();
 
     private Instant createdAt;
     private Instant updatedAt;
@@ -89,12 +73,12 @@ public class Pitch {
     @PrePersist
     public void handleBeforeCreate() {
         this.createdBy = SecurityUtil.getCurrentUserLogin().orElse("");
-        this.createdAt = Instant.now(); // tạo ra lúc
+        this.createdAt = Instant.now();
     }
 
     @PreUpdate
     public void handleBeforeUpdate() {
         this.updatedBy = SecurityUtil.getCurrentUserLogin().orElse("");
-        this.updatedAt = Instant.now(); // cập nhật lúc
+        this.updatedAt = Instant.now();
     }
 }

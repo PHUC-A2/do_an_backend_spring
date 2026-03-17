@@ -26,6 +26,10 @@ public class ResCreatePitchDTO {
     private String address;
     private Double latitude;
     private Double longitude;
+    private Double length;
+    private Double width;
+    private Double height;
+    private String imageUrl;
     private Instant createdAt;
     private String createdBy;
 }

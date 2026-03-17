@@ -52,4 +52,9 @@ public class ReqUpdatePitchDTO {
     @Min(value = -180, message = "Kinh độ tối thiểu là -180")
     @Max(value = 180, message = "Kinh độ tối đa là 180")
     private Double longitude;
+
+    private Double length;
+    private Double width;
+    private Double height;
+    private String imageUrl;
 }

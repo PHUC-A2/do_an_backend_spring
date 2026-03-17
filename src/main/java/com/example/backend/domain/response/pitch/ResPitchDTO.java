@@ -27,6 +27,10 @@ public class ResPitchDTO {
     private String address;
     private Double latitude;
     private Double longitude;
+    private Double length;
+    private Double width;
+    private Double height;
+    private String imageUrl;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

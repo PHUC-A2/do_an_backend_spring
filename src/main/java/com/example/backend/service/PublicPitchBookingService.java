@@ -68,13 +68,17 @@ public class PublicPitchBookingService {
                 LocalDateTime startOfDay = date.atStartOfDay();
                 LocalDateTime endOfDay = date.atTime(23, 59, 59);
 
+                // ACTIVE và PAID đều chiếm slot — chỉ CANCELLED mới giải phóng
+                List<BookingStatusEnum> occupyingStatuses = List.of(
+                                BookingStatusEnum.ACTIVE,
+                                BookingStatusEnum.PAID);
+
                 return bookingRepository
-                                .findByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
+                                .findByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThanOrderByStartDateTimeAsc(
                                                 pitchId,
-                                                BookingStatusEnum.ACTIVE,
+                                                occupyingStatuses,
                                                 endOfDay,
                                                 startOfDay)
-
                                 .stream()
                                 .map(b -> new BookingTimeRange(
                                                 b.getStartDateTime(),

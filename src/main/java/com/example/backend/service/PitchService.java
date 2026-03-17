@@ -85,6 +85,10 @@ public class PitchService {
         pitch.setAddress(req.getAddress());
         pitch.setLatitude(req.getLatitude());
         pitch.setLongitude(req.getLongitude());
+        pitch.setLength(req.getLength());
+        pitch.setWidth(req.getWidth());
+        pitch.setHeight(req.getHeight());
+        pitch.setImageUrl(req.getImageUrl());
 
         Pitch updatedPitch = this.pitchRepository.save(pitch);
 
@@ -116,6 +120,10 @@ public class PitchService {
         pitch.setAddress(req.getAddress());
         pitch.setLatitude(req.getLatitude());
         pitch.setLongitude(req.getLongitude());
+        pitch.setLength(req.getLength());
+        pitch.setWidth(req.getWidth());
+        pitch.setHeight(req.getHeight());
+        pitch.setImageUrl(req.getImageUrl());
 
         return pitch;
     }
@@ -137,6 +145,10 @@ public class PitchService {
         res.setAddress(pitch.getAddress());
         res.setLatitude(pitch.getLatitude());
         res.setLongitude(pitch.getLongitude());
+        res.setLength(pitch.getLength());
+        res.setWidth(pitch.getWidth());
+        res.setHeight(pitch.getHeight());
+        res.setImageUrl(pitch.getImageUrl());
 
         res.setCreatedAt(pitch.getCreatedAt());
         res.setCreatedBy(pitch.getCreatedBy());
@@ -161,6 +173,10 @@ public class PitchService {
         res.setAddress(pitch.getAddress());
         res.setLatitude(pitch.getLatitude());
         res.setLongitude(pitch.getLongitude());
+        res.setLength(pitch.getLength());
+        res.setWidth(pitch.getWidth());
+        res.setHeight(pitch.getHeight());
+        res.setImageUrl(pitch.getImageUrl());
 
         res.setUpdatedAt(pitch.getUpdatedAt());
         res.setUpdatedBy(pitch.getUpdatedBy());
@@ -185,7 +201,11 @@ public class PitchService {
         res.setAddress(pitch.getAddress());
         res.setLatitude(pitch.getLatitude());
         res.setLongitude(pitch.getLongitude());
-        
+        res.setLength(pitch.getLength());
+        res.setWidth(pitch.getWidth());
+        res.setHeight(pitch.getHeight());
+        res.setImageUrl(pitch.getImageUrl());
+
         res.setCreatedAt(pitch.getCreatedAt());
         res.setCreatedBy(pitch.getCreatedBy());
         res.setUpdatedAt(pitch.getUpdatedAt());
