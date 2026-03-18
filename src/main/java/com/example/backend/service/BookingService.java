@@ -24,7 +24,6 @@ import com.example.backend.domain.response.booking.ResCreateBookingDTO;
 import com.example.backend.domain.response.booking.ResUpdateBookingDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.repository.BookingRepository;
-import com.example.backend.repository.UserRepository;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
@@ -39,7 +38,6 @@ import jakarta.transaction.Transactional;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
-    private final UserRepository userRepository;
     private final UserService userService;
     private final PitchService pitchService;
     private final NotificationService notificationService;
@@ -49,11 +47,10 @@ public class BookingService {
             BookingStatusEnum.ACTIVE,
             BookingStatusEnum.PAID);
 
-    public BookingService(BookingRepository bookingRepository, UserRepository userRepository, UserService userService,
+    public BookingService(BookingRepository bookingRepository, UserService userService,
             PitchService pitchService,
             NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
-        this.userRepository = userRepository;
         this.userService = userService;
         this.pitchService = pitchService;
         this.notificationService = notificationService;
@@ -149,7 +146,7 @@ public class BookingService {
             String adminMsg = String.format(
                     "Có yêu cầu đặt sân mới cần xác nhận. Booking #%d – %s đặt sân %s lúc %s.",
                     booking.getId(), requesterName, pitchName, bookingTime);
-            notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg);
+            notificationService.notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg);
         } else {
             String notifMsg = String.format("Đặt sân thành công! Booking #%d – %s lúc %s",
                     booking.getId(), pitchName, bookingTime);
@@ -625,12 +622,6 @@ public class BookingService {
                 pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
         notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg);
-    }
-
-    private void notifyAdmins(NotificationTypeEnum type, String message) {
-        userRepository.findDistinctByRoles_Name("ADMIN").stream()
-                .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
-                .forEach(admin -> notificationService.createAndPush(admin, type, message));
     }
 
 }

@@ -3,8 +3,10 @@ package com.example.backend.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 
+import java.io.UnsupportedEncodingException;
 import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,9 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
         this.mailSender = mailSender;
@@ -56,12 +61,13 @@ public class EmailService {
             String safeHtmlBody = Objects.requireNonNull(htmlBody, "htmlBody must not be null");
 
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
+            helper.setFrom(fromEmail, "TBU Sport");
             helper.setTo(safeToEmail);
             helper.setSubject(safeSubject);
             helper.setText(safeHtmlBody, true);
 
             mailSender.send(mimeMessage);
-        } catch (MessagingException e) {
+        } catch (MessagingException | UnsupportedEncodingException e) {
             throw new RuntimeException("Không thể gửi email OTP", e);
         }
     }

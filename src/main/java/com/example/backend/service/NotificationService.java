@@ -24,8 +24,10 @@ import com.example.backend.domain.entity.User;
 import com.example.backend.domain.response.notification.ResNotificationDTO;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.repository.NotificationRepository;
+import com.example.backend.repository.UserRepository;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
+import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.IdInvalidException;
 
 @Service
@@ -36,16 +38,29 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final BookingRepository bookingRepository;
     private final UserService userService;
+    private final UserRepository userRepository;
 
     // email -> list of emitters (một user có thể mở nhiều tab)
     private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
 
     public NotificationService(NotificationRepository notificationRepository,
             BookingRepository bookingRepository,
-            UserService userService) {
+            UserService userService,
+            UserRepository userRepository) {
         this.notificationRepository = notificationRepository;
         this.bookingRepository = bookingRepository;
         this.userService = userService;
+        this.userRepository = userRepository;
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Notify all active admins
+    // ──────────────────────────────────────────────────────────────
+
+    public void notifyAdmins(NotificationTypeEnum type, String message) {
+        userRepository.findDistinctByRoles_Name("ADMIN").stream()
+                .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
+                .forEach(admin -> createAndPush(admin, type, message));
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -92,7 +107,7 @@ public class NotificationService {
         notificationRepository.save(n);
 
         pushToUser(user.getEmail(), convertToDTO(n));
-        sendFcmPush(user, type.name(), message);
+        sendFcmPush(user, resolvePushTitle(type), message);
     }
 
     private void pushToUser(String email, ResNotificationDTO dto) {
@@ -175,9 +190,14 @@ public class NotificationService {
     @Scheduled(fixedDelay = 60_000)
     public void sendMatchReminders() {
         LocalDateTime now = LocalDateTime.now();
-        // Tìm các booking bắt đầu trong khoảng 15-16 phút tới
-        LocalDateTime from = now.plusMinutes(15);
-        LocalDateTime to = now.plusMinutes(16);
+        sendMatchReminderAt(now, 30);
+        sendMatchReminderAt(now, 15);
+        sendMatchReminderAt(now, 10);
+    }
+
+    private void sendMatchReminderAt(LocalDateTime now, int minutesBefore) {
+        LocalDateTime from = now.plusMinutes(minutesBefore);
+        LocalDateTime to = from.plusMinutes(1);
 
         List<Booking> upcoming = bookingRepository
                 .findByStatusInAndStartDateTimeBetween(
@@ -185,25 +205,34 @@ public class NotificationService {
                         from,
                         to);
 
-        Instant alreadySentFrom = Instant.now().minusSeconds(120); // tránh gửi 2 lần
-        Instant alreadySentTo = Instant.now();
+        if (upcoming.isEmpty()) {
+            return;
+        }
+
+        Instant dedupeFrom = Instant.now().minusSeconds(6 * 60 * 60);
+        Instant dedupeTo = Instant.now();
+        List<Notification> recentReminders = notificationRepository
+                .findByTypeAndCreatedAtBetween(NotificationTypeEnum.MATCH_REMINDER, dedupeFrom, dedupeTo);
 
         for (Booking booking : upcoming) {
             User user = booking.getUser();
-            // Kiểm tra đã gửi nhắc nhở cho booking này chưa (trong 2 phút gần đây)
-            boolean alreadySent = notificationRepository
-                    .findByTypeAndCreatedAtBetween(NotificationTypeEnum.MATCH_REMINDER, alreadySentFrom, alreadySentTo)
-                    .stream()
-                    .anyMatch(n -> n.getUser().getId().equals(user.getId())
-                            && n.getMessage().contains("#" + booking.getId()));
+            boolean alreadySent = recentReminders.stream().anyMatch(n -> n.getUser().getId().equals(user.getId())
+                    && n.getMessage().contains("Booking #" + booking.getId())
+                    && n.getMessage().contains("Còn " + minutesBefore + " phút"));
 
-            if (!alreadySent) {
-                String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "sân";
-                String msg = String.format("Sắp đến giờ đá! Booking #%d – sân %s lúc %s",
-                        booking.getId(), pitchName,
-                        booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
-                createAndPush(user, NotificationTypeEnum.MATCH_REMINDER, msg);
+            if (alreadySent) {
+                continue;
             }
+
+            String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "san";
+            String startAt = booking.getStartDateTime().toString().replace("T", " ").substring(0, 16);
+            String msg = String.format("Còn %d phút đến giờ đá! Booking #%d - sân %s lúc %s",
+                    minutesBefore,
+                    booking.getId(),
+                    pitchName,
+                    startAt);
+
+            createAndPush(user, NotificationTypeEnum.MATCH_REMINDER, msg);
         }
     }
 
@@ -228,6 +257,24 @@ public class NotificationService {
         } catch (NoClassDefFoundError | Exception e) {
             log.warn("[FCM] Push skipped for {}: {}", user.getEmail(), e.getMessage());
         }
+    }
+
+    private String resolvePushTitle(NotificationTypeEnum type) {
+        return switch (type) {
+            case BOOKING_CREATED -> "Dat san thanh cong";
+            case BOOKING_PENDING_CONFIRMATION -> "Yeu cau dat san moi";
+            case BOOKING_APPROVED -> "Booking da duoc xac nhan";
+            case BOOKING_REJECTED -> "Booking bi tu choi";
+            case PAYMENT_REQUESTED -> "Yeu cau thanh toan";
+            case PAYMENT_PROOF_UPLOADED -> "Da tai len minh chung thanh toan";
+            case PAYMENT_CONFIRMED -> "Thanh toan da xac nhan";
+            case EQUIPMENT_BORROWED -> "Muon thiet bi";
+            case EQUIPMENT_RETURNED -> "Tra thiet bi";
+            case EQUIPMENT_LOST -> "Bao mat thiet bi";
+            case EQUIPMENT_DAMAGED -> "Thiet bi bi hong";
+            case MATCH_REMINDER -> "Nhac lich da bong";
+            case AI_KEY_EXPIRED -> "Canh bao he thong";
+        };
     }
 
     // ──────────────────────────────────────────────────────────────

@@ -42,7 +42,8 @@ public class ClientBookingEquipmentController {
         this.bookingService = bookingService;
     }
 
-    // Client mượn thiết bị sau khi đặt sân — chỉ được mượn cho booking của chính mình
+    // Client mượn thiết bị sau khi đặt sân — chỉ được mượn cho booking của chính
+    // mình
     @PostMapping("/booking-equipments")
     @ApiMessage("Mượn thiết bị")
     public ResponseEntity<ResBookingEquipmentDTO> borrowEquipment(
@@ -58,7 +59,7 @@ public class ClientBookingEquipmentController {
         }
 
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(bookingEquipmentService.borrowEquipment(req));
+                .body(bookingEquipmentService.borrowEquipmentByClient(req));
     }
 
     // Client cập nhật trạng thái thiết bị mượn (RETURNED / LOST / DAMAGED)
@@ -78,7 +79,7 @@ public class ClientBookingEquipmentController {
         }
         bookingService.getBookingByIdForUser(be.getBooking().getId(), email);
 
-        return ResponseEntity.ok(bookingEquipmentService.updateStatus(id, req));
+        return ResponseEntity.ok(bookingEquipmentService.updateStatusByClient(id, req));
     }
 
     // Client xem toàn bộ lịch sử mượn thiết bị của mình (tất cả booking)

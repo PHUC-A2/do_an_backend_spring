@@ -82,7 +82,19 @@ public class PaymentService {
         payment.setContent("BOOKING_" + booking.getId());
         payment.setPaymentCode(generatePaymentCode());
 
-        return paymentRepository.save(payment);
+        paymentRepository.save(payment);
+
+        // Notify admins that a QR payment request was created
+        String userName = booking.getUser().getFullName() != null && !booking.getUser().getFullName().isBlank()
+                ? booking.getUser().getFullName()
+                : booking.getUser().getName();
+        String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "s\u00e2n";
+        String adminMsg = String.format(
+                "Kh\u00e1ch h\u00e0ng %s v\u1eeba t\u1ea1o y\u00eau c\u1ea7u thanh to\u00e1n QR cho Booking #%d \u2013 s\u00e2n %s. S\u1ed1 ti\u1ec1n: %s VN\u0110.",
+                userName, booking.getId(), pitchName, booking.getTotalPrice().toPlainString());
+        notificationService.notifyAdmins(NotificationTypeEnum.PAYMENT_REQUESTED, adminMsg);
+
+        return payment;
     }
 
     public Payment getByCode(String code) {
@@ -246,6 +258,16 @@ public class PaymentService {
 
         payment.setProofUrl(proofUrl);
         paymentRepository.save(payment);
+
+        // Notify admins that the user uploaded a payment proof
+        String userName = booking.getUser().getFullName() != null && !booking.getUser().getFullName().isBlank()
+                ? booking.getUser().getFullName()
+                : booking.getUser().getName();
+        String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "s\u00e2n";
+        String proofMsg = String.format(
+                "Kh\u00e1ch h\u00e0ng %s \u0111\u00e3 t\u1ea3i l\u00ean \u1ea3nh x\u00e1c nh\u1eadn thanh to\u00e1n cho Booking #%d \u2013 s\u00e2n %s. Vui l\u00f2ng ki\u1ec3m tra.",
+                userName, booking.getId(), pitchName);
+        notificationService.notifyAdmins(NotificationTypeEnum.PAYMENT_PROOF_UPLOADED, proofMsg);
     }
 
 }

@@ -39,7 +39,7 @@ public class BookingEquipmentController {
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_EQUIPMENT_CREATE')")
     public ResponseEntity<ResBookingEquipmentDTO> borrowEquipment(
             @Valid @RequestBody @NonNull ReqCreateBookingEquipmentDTO dto) throws IdInvalidException {
-        return ResponseEntity.status(HttpStatus.CREATED).body(bookingEquipmentService.borrowEquipment(dto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(bookingEquipmentService.borrowEquipmentByAdmin(dto));
     }
 
     // Lấy tất cả bản ghi mượn thiết bị
@@ -66,6 +66,6 @@ public class BookingEquipmentController {
     public ResponseEntity<ResBookingEquipmentDTO> updateStatus(
             @PathVariable Long id,
             @Valid @RequestBody ReqUpdateBookingEquipmentStatusDTO dto) throws IdInvalidException {
-        return ResponseEntity.ok(bookingEquipmentService.updateStatus(id, dto));
+        return ResponseEntity.ok(bookingEquipmentService.updateStatusByAdmin(id, dto));
     }
 }
