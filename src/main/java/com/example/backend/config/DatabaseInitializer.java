@@ -6,6 +6,7 @@ import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class DatabaseInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
     /**
      * Có thể thêm bao nhiêu Admin tùy ý
      */
@@ -46,16 +48,21 @@ public class DatabaseInitializer implements CommandLineRunner {
     public DatabaseInitializer(PermissionRepository permissionRepository,
             RoleRepository roleRepository,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder) {
+            PasswordEncoder passwordEncoder,
+            JdbcTemplate jdbcTemplate) {
         this.permissionRepository = permissionRepository;
         this.roleRepository = roleRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public void run(String... args) throws Exception {
         System.out.println(">>> START INIT DATABASE");
+
+        ensureBookingStatusColumnCompatible();
+        ensureNotificationTypeColumnCompatible();
 
         // long countPermissions = permissionRepository.count();
         // 1. Tạo PERMISSION nếu chưa có
@@ -236,6 +243,56 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
 
         System.out.println(">>> END INIT DATABASE");
+    }
+
+    private void ensureBookingStatusColumnCompatible() {
+        try {
+            String dataType = jdbcTemplate.queryForObject(
+                    """
+                            SELECT DATA_TYPE
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'bookings'
+                              AND COLUMN_NAME = 'status'
+                            """,
+                    String.class);
+
+            if (dataType == null || !"enum".equalsIgnoreCase(dataType)) {
+                return;
+            }
+
+            // Convert old ENUM to VARCHAR so future enum values do not break inserts.
+            jdbcTemplate.execute("ALTER TABLE bookings MODIFY COLUMN status VARCHAR(32) NOT NULL");
+            System.out.println(">>> MIGRATION: bookings.status converted from ENUM to VARCHAR(32)");
+        } catch (Exception ex) {
+            // Ignore when table/column is not ready yet; app can continue bootstrap safely.
+            System.out.println(">>> MIGRATION SKIPPED: " + ex.getMessage());
+        }
+    }
+
+    private void ensureNotificationTypeColumnCompatible() {
+        try {
+            String dataType = jdbcTemplate.queryForObject(
+                    """
+                            SELECT DATA_TYPE
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'notifications'
+                              AND COLUMN_NAME = 'type'
+                            """,
+                    String.class);
+
+            if (dataType == null || !"enum".equalsIgnoreCase(dataType)) {
+                return;
+            }
+
+            // Convert old ENUM to VARCHAR so future enum values do not break inserts.
+            jdbcTemplate.execute("ALTER TABLE notifications MODIFY COLUMN type VARCHAR(64) NOT NULL");
+            System.out.println(">>> MIGRATION: notifications.type converted from ENUM to VARCHAR(64)");
+        } catch (Exception ex) {
+            // Ignore when table/column is not ready yet; app can continue bootstrap safely.
+            System.out.println(">>> MIGRATION SKIPPED: " + ex.getMessage());
+        }
     }
 
     // private Permission createPermission(String name, String description) {

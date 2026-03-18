@@ -1,5 +1,6 @@
 package com.example.backend.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -37,6 +38,8 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
         })
         @NonNull
         Page<User> findAll(@Nullable Specification<User> spec, @NonNull Pageable pageable);
+
+        List<User> findDistinctByRoles_Name(String roleName);
 
         long count();
 

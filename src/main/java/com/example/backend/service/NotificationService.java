@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,13 +55,14 @@ public class NotificationService {
     public SseEmitter subscribe(String email) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
 
-        emitters.computeIfAbsent(email, k -> new ArrayList<>()).add(emitter);
+        emitters.computeIfAbsent(email, k -> new CopyOnWriteArrayList<>()).add(emitter);
 
         Runnable cleanup = () -> {
             List<SseEmitter> list = emitters.get(email);
             if (list != null) {
                 list.remove(emitter);
-                if (list.isEmpty()) emitters.remove(email);
+                if (list.isEmpty())
+                    emitters.remove(email, list);
             }
         };
 
@@ -95,7 +97,8 @@ public class NotificationService {
 
     private void pushToUser(String email, ResNotificationDTO dto) {
         List<SseEmitter> userEmitters = emitters.get(email);
-        if (userEmitters == null || userEmitters.isEmpty()) return;
+        if (userEmitters == null || userEmitters.isEmpty())
+            return;
 
         List<SseEmitter> dead = new ArrayList<>();
         for (SseEmitter emitter : userEmitters) {
@@ -108,6 +111,9 @@ public class NotificationService {
             }
         }
         userEmitters.removeAll(dead);
+        if (userEmitters.isEmpty()) {
+            emitters.remove(email, userEmitters);
+        }
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -206,9 +212,11 @@ public class NotificationService {
     // ──────────────────────────────────────────────────────────────
 
     private void sendFcmPush(User user, String title, String body) {
-        if (user.getFcmToken() == null || user.getFcmToken().isBlank()) return;
+        if (user.getFcmToken() == null || user.getFcmToken().isBlank())
+            return;
         try {
-            if (FirebaseApp.getApps().isEmpty()) return;
+            if (FirebaseApp.getApps().isEmpty())
+                return;
             Message msg = Message.builder()
                     .setToken(user.getFcmToken())
                     .setNotification(com.google.firebase.messaging.Notification.builder()

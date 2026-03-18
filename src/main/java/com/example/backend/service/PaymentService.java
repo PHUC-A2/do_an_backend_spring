@@ -58,6 +58,10 @@ public class PaymentService {
 
         Booking booking = bookingService.getBookingById(bookingId);
 
+        if (booking.getStatus() == BookingStatusEnum.PENDING) {
+            throw new BadRequestException("Booking đang chờ admin xác nhận, chưa thể thanh toán");
+        }
+
         if (booking.getStatus() == BookingStatusEnum.CANCELLED) {
             throw new BadRequestException("Booking đã bị huỷ, không thể tạo payment");
         }
@@ -165,7 +169,7 @@ public class PaymentService {
     }
 
     // get all
-      public ResultPaginationDTO getAllPayments(Specification<Payment> spec, @NonNull Pageable pageable) {
+    public ResultPaginationDTO getAllPayments(Specification<Payment> spec, @NonNull Pageable pageable) {
         Page<Payment> pagePayment = paymentRepository.findAll(spec, pageable);
 
         ResultPaginationDTO result = new ResultPaginationDTO();
@@ -211,9 +215,11 @@ public class PaymentService {
                 .pitchName(pitch != null ? pitch.getName() : null)
                 .contactPhone(booking != null ? booking.getContactPhone() : null)
                 .bookingStart(booking != null && booking.getStartDateTime() != null
-                        ? booking.getStartDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant() : null)
+                        ? booking.getStartDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                        : null)
                 .bookingEnd(booking != null && booking.getEndDateTime() != null
-                        ? booking.getEndDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant() : null)
+                        ? booking.getEndDateTime().atZone(java.time.ZoneId.systemDefault()).toInstant()
+                        : null)
                 .paidAt(dto.getPaidAt())
                 .createdAt(dto.getCreatedAt())
                 .updatedAt(dto.getUpdatedAt())

@@ -44,9 +44,22 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
                         LocalDateTime end,
                         LocalDateTime start);
 
+        boolean existsByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
+                        Long pitchId,
+                        List<BookingStatusEnum> statuses,
+                        LocalDateTime end,
+                        LocalDateTime start);
+
         boolean existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
                         Long pitchId,
                         BookingStatusEnum status,
+                        LocalDateTime end,
+                        LocalDateTime start,
+                        Long id);
+
+        boolean existsByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+                        Long pitchId,
+                        List<BookingStatusEnum> statuses,
                         LocalDateTime end,
                         LocalDateTime start,
                         Long id);

@@ -105,13 +105,13 @@ public class SecurityUtil {
 
     // public Jwt checkValidRefreshToken(String token) {
 
-    //     NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey())
-    //             .macAlgorithm(SecurityUtil.JWT_ALGORITHM)
-    //             .build();
+    // NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey())
+    // .macAlgorithm(SecurityUtil.JWT_ALGORITHM)
+    // .build();
 
-    //     jwtDecoder.setJwtValidator(JwtValidators.createDefault()); // BẮT BUỘC
+    // jwtDecoder.setJwtValidator(JwtValidators.createDefault()); // BẮT BUỘC
 
-    //     return jwtDecoder.decode(token); // HẾT HẠN → 401
+    // return jwtDecoder.decode(token); // HẾT HẠN → 401
     // }
 
     public Jwt checkValidRefreshToken(String token) throws IdInvalidException {
@@ -127,6 +127,20 @@ public class SecurityUtil {
         } catch (JwtException ex) {
             // HẾT HẠN / SAI CHỮ KÝ / TOKEN BỊ SỬA
             throw new IdInvalidException("Refresh token hết hạn hoặc không hợp lệ");
+        }
+    }
+
+    public Optional<String> extractSubjectFromToken(String token) {
+        try {
+            NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withSecretKey(getSecretKey())
+                    .macAlgorithm(SecurityUtil.JWT_ALGORITHM)
+                    .build();
+
+            jwtDecoder.setJwtValidator(JwtValidators.createDefault());
+            Jwt jwt = jwtDecoder.decode(token);
+            return Optional.ofNullable(jwt.getSubject());
+        } catch (JwtException ex) {
+            return Optional.empty();
         }
     }
 

@@ -70,6 +70,7 @@ public class PublicPitchBookingService {
 
                 // ACTIVE và PAID đều chiếm slot — chỉ CANCELLED mới giải phóng
                 List<BookingStatusEnum> occupyingStatuses = List.of(
+                                BookingStatusEnum.PENDING,
                                 BookingStatusEnum.ACTIVE,
                                 BookingStatusEnum.PAID);
 

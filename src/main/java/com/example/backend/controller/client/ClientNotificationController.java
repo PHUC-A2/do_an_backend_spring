@@ -42,11 +42,7 @@ public class ClientNotificationController {
     public SseEmitter subscribe(@RequestParam(required = false) String token) {
         String email = "";
         if (token != null && !token.isBlank()) {
-            try {
-                var jwt = securityUtil.checkValidRefreshToken(token); // reuse JWT decoder
-                email = jwt.getSubject();
-            } catch (Exception ignored) {
-            }
+            email = securityUtil.extractSubjectFromToken(token).orElse("");
         }
         if (email.isBlank()) {
             email = SecurityUtil.getCurrentUserLogin().orElse("");

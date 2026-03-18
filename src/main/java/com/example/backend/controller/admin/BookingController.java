@@ -80,11 +80,27 @@ public class BookingController {
 
         // Kiểm tra admin
         // if (req.getUserId() != null && !SecurityUtil.isCurrentUserAdmin()) {
-        //     throw new BadRequestException("Không có quyền đặt cho user khác");
+        // throw new BadRequestException("Không có quyền đặt cho user khác");
         // }
 
         ResUpdateBookingDTO res = this.bookingService.updateBooking(id, req);
         return ResponseEntity.ok(res);
+    }
+
+    @PatchMapping("/bookings/{id}/approve")
+    @ApiMessage("Admin xác nhận booking")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_UPDATE')")
+    public ResponseEntity<Void> approveBooking(@PathVariable @NonNull Long id) throws IdInvalidException {
+        this.bookingService.approveBooking(id);
+        return ResponseEntity.ok().build();
+    }
+
+    @PatchMapping("/bookings/{id}/reject")
+    @ApiMessage("Admin từ chối booking")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_UPDATE')")
+    public ResponseEntity<Void> rejectBooking(@PathVariable @NonNull Long id) throws IdInvalidException {
+        this.bookingService.rejectBooking(id);
+        return ResponseEntity.ok().build();
     }
 
     // Delete booking

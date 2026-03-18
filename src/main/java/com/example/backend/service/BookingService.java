@@ -24,6 +24,7 @@ import com.example.backend.domain.response.booking.ResCreateBookingDTO;
 import com.example.backend.domain.response.booking.ResUpdateBookingDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.repository.BookingRepository;
+import com.example.backend.repository.UserRepository;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.ShirtOptionEnum;
@@ -38,13 +39,21 @@ import jakarta.transaction.Transactional;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final UserRepository userRepository;
     private final UserService userService;
     private final PitchService pitchService;
     private final NotificationService notificationService;
 
-    public BookingService(BookingRepository bookingRepository, UserService userService, PitchService pitchService,
+    private static final List<BookingStatusEnum> OCCUPYING_STATUSES = List.of(
+            BookingStatusEnum.PENDING,
+            BookingStatusEnum.ACTIVE,
+            BookingStatusEnum.PAID);
+
+    public BookingService(BookingRepository bookingRepository, UserRepository userRepository, UserService userService,
+            PitchService pitchService,
             NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
+        this.userRepository = userRepository;
         this.userService = userService;
         this.pitchService = pitchService;
         this.notificationService = notificationService;
@@ -108,6 +117,8 @@ public class BookingService {
         // 10. Resolve contactPhone
         String contactPhone = this.resolveContactPhone(user, req.getContactPhone());
 
+        boolean requiresAdminApproval = req.getUserId() == null;
+
         // 11. Lưu booking
         Booking booking = new Booking();
         booking.setUser(user);
@@ -119,15 +130,31 @@ public class BookingService {
         booking.setContactPhone(contactPhone);
         booking.setDurationMinutes(durationMinutes);
         booking.setTotalPrice(totalPrice);
+        booking.setStatus(requiresAdminApproval ? BookingStatusEnum.PENDING : BookingStatusEnum.ACTIVE);
 
         this.bookingRepository.save(booking);
 
-        // 12. Gửi thông báo đặt sân thành công
         String pitchName = pitch.getName() != null ? pitch.getName() : "sân";
-        String notifMsg = String.format("Đặt sân thành công! Booking #%d – %s lúc %s",
-                booking.getId(), pitchName,
-                booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
-        notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_CREATED, notifMsg);
+        String bookingTime = booking.getStartDateTime().toString().replace("T", " ").substring(0, 16);
+
+        if (requiresAdminApproval) {
+            String userMsg = String.format(
+                    "Yêu cầu đặt sân đã được gửi! Booking #%d – %s lúc %s đang chờ admin xác nhận.",
+                    booking.getId(), pitchName, bookingTime);
+            notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, userMsg);
+
+            String requesterName = user.getFullName() != null && !user.getFullName().isBlank()
+                    ? user.getFullName()
+                    : user.getName();
+            String adminMsg = String.format(
+                    "Có yêu cầu đặt sân mới cần xác nhận. Booking #%d – %s đặt sân %s lúc %s.",
+                    booking.getId(), requesterName, pitchName, bookingTime);
+            notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg);
+        } else {
+            String notifMsg = String.format("Đặt sân thành công! Booking #%d – %s lúc %s",
+                    booking.getId(), pitchName, bookingTime);
+            notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_CREATED, notifMsg);
+        }
 
         // 13. Trả response
         return this.convertToResCreateBookingDTO(booking);
@@ -262,9 +289,9 @@ public class BookingService {
 
         // 5. Check trùng lịch
         boolean exists = bookingRepository
-                .existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+                .existsByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
                         pitch.getId(),
-                        BookingStatusEnum.ACTIVE,
+                        OCCUPYING_STATUSES,
                         end,
                         start,
                         booking.getId());
@@ -323,9 +350,9 @@ public class BookingService {
     // khiểm tra trùng lịch
     private void checkOverlapping(Long pitchId, ReqCreateBookingDTO req) {
         boolean exists = bookingRepository
-                .existsByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
+                .existsByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThan(
                         pitchId,
-                        BookingStatusEnum.ACTIVE,
+                        OCCUPYING_STATUSES,
                         req.getEndDateTime(),
                         req.getStartDateTime());
 
@@ -454,6 +481,10 @@ public class BookingService {
             throw new BadRequestException("Không thể cập nhật booking đã bị hủy");
         }
 
+        if (booking.getStatus() == BookingStatusEnum.PAID) {
+            throw new BadRequestException("Không thể cập nhật booking đã thanh toán");
+        }
+
         if (booking.getDeletedByUser()) {
             throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
         }
@@ -477,7 +508,8 @@ public class BookingService {
         }
 
         // if (booking.getStatus() != BookingStatusEnum.CANCELLED) {
-        //     throw new BadRequestException("Vui lòng hủy booking trước khi xóa khỏi lịch sử");
+        // throw new BadRequestException("Vui lòng hủy booking trước khi xóa khỏi lịch
+        // sử");
         // }
 
         booking.setDeletedByUser(true);
@@ -540,6 +572,65 @@ public class BookingService {
 
         booking.setStatus(BookingStatusEnum.CANCELLED);
         bookingRepository.save(booking);
+
+        String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "sân";
+        String msg = String.format("Booking #%d – %s lúc %s đã được hủy.",
+                booking.getId(),
+                pitchName,
+                booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg);
+    }
+
+    @Transactional
+    public void approveBooking(@NonNull Long id) throws IdInvalidException {
+        Booking booking = getBookingById(id);
+
+        if (booking.getStatus() == BookingStatusEnum.ACTIVE || booking.getStatus() == BookingStatusEnum.PAID) {
+            throw new BadRequestException("Booking này đã được xác nhận trước đó");
+        }
+
+        if (booking.getStatus() == BookingStatusEnum.CANCELLED) {
+            throw new BadRequestException("Booking đã bị hủy, không thể xác nhận");
+        }
+
+        booking.setStatus(BookingStatusEnum.ACTIVE);
+        bookingRepository.save(booking);
+
+        String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "sân";
+        String msg = String.format("Booking #%d – %s lúc %s đã được admin xác nhận.",
+                booking.getId(),
+                pitchName,
+                booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_APPROVED, msg);
+    }
+
+    @Transactional
+    public void rejectBooking(@NonNull Long id) throws IdInvalidException {
+        Booking booking = getBookingById(id);
+
+        if (booking.getStatus() == BookingStatusEnum.ACTIVE || booking.getStatus() == BookingStatusEnum.PAID) {
+            throw new BadRequestException("Booking này đã được xác nhận, không thể từ chối");
+        }
+
+        if (booking.getStatus() == BookingStatusEnum.CANCELLED) {
+            throw new BadRequestException("Booking đã bị hủy trước đó");
+        }
+
+        booking.setStatus(BookingStatusEnum.CANCELLED);
+        bookingRepository.save(booking);
+
+        String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "sân";
+        String msg = String.format("Booking #%d – %s lúc %s đã bị admin từ chối.",
+                booking.getId(),
+                pitchName,
+                booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg);
+    }
+
+    private void notifyAdmins(NotificationTypeEnum type, String message) {
+        userRepository.findDistinctByRoles_Name("ADMIN").stream()
+                .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
+                .forEach(admin -> notificationService.createAndPush(admin, type, message));
     }
 
 }
