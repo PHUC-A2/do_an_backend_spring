@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.backend.domain.response.revenue.ResRevenueDashboardDTO;
@@ -21,6 +22,7 @@ public class RevenueController {
 
     @GetMapping("/revenues")
     @ApiMessage("Lấy thống kê doanh thu")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('REVENUE_VIEW_DETAIL')")
     public ResponseEntity<ResRevenueDashboardDTO> getDashboard(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
 

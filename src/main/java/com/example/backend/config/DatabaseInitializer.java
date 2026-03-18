@@ -106,6 +106,27 @@ public class DatabaseInitializer implements CommandLineRunner {
         // REVENUE
         createPermissionIfNotExists("REVENUE_VIEW_DETAIL", "Lấy thống kê doanh thu");
 
+        // EQUIPMENT
+        createPermissionIfNotExists("EQUIPMENT_VIEW_LIST", "Xem danh sách thiết bị");
+        createPermissionIfNotExists("EQUIPMENT_VIEW_DETAIL", "Xem chi tiết thiết bị");
+        createPermissionIfNotExists("EQUIPMENT_CREATE", "Tạo thiết bị");
+        createPermissionIfNotExists("EQUIPMENT_UPDATE", "Cập nhật thiết bị");
+        createPermissionIfNotExists("EQUIPMENT_DELETE", "Xóa thiết bị");
+
+        // BOOKING_EQUIPMENT
+        createPermissionIfNotExists("BOOKING_EQUIPMENT_VIEW", "Xem danh sách & chi tiết mượn thiết bị");
+        createPermissionIfNotExists("BOOKING_EQUIPMENT_CREATE", "Tạo đơn mượn thiết bị");
+        createPermissionIfNotExists("BOOKING_EQUIPMENT_UPDATE", "Cập nhật trạng thái mượn thiết bị");
+
+        // AI keys management
+        createPermissionIfNotExists("AI_VIEW_LIST", "Xem danh sách AI keys");
+        createPermissionIfNotExists("AI_CREATE", "Thêm AI key");
+        createPermissionIfNotExists("AI_UPDATE", "Bật/tắt AI key");
+        createPermissionIfNotExists("AI_DELETE", "Xóa AI key");
+
+        // AI chat
+        createPermissionIfNotExists("AI_CHAT_ADMIN", "Admin sử dụng AI chat không giới hạn");
+
         // 2. Tạo ROLES nếu chưa có
         // if (countRoles == 0) {
         // List<Permission> allPermissions = permissionRepository.findAll();
@@ -152,33 +173,32 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // ================== INIT ROLE VIEW ==================
         Role viewRole = roleRepository.findByName("VIEW");
-        if (viewRole == null) {
+        List<Permission> allPermissions = permissionRepository.findAll();
+        Set<Permission> viewPermissions = new HashSet<>();
 
-            List<Permission> allPermissions = permissionRepository.findAll();
-            Set<Permission> viewPermissions = new HashSet<>();
+        for (Permission p : allPermissions) {
 
-            for (Permission p : allPermissions) {
-
-                // PITCH: chỉ xem
-                if (p.getName().startsWith("PITCH_") &&
-                        (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
-                    viewPermissions.add(p);
-                }
-
-                // BOOKING: cho C-R-U, KHÔNG cho DELETE
-                if (p.getName().startsWith("BOOKING_")
-                        && !p.getName().equals("BOOKING_DELETE")) {
-                    viewPermissions.add(p);
-                }
+            // PITCH: chỉ xem
+            if (p.getName().startsWith("PITCH_") &&
+                    (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
+                viewPermissions.add(p);
             }
 
+            // BOOKING: cho C-R-U, KHÔNG cho DELETE
+            if (p.getName().startsWith("BOOKING_")
+                    && !p.getName().equals("BOOKING_DELETE")) {
+                viewPermissions.add(p);
+            }
+        }
+
+        if (viewRole == null) {
             viewRole = new Role();
             viewRole.setName("VIEW");
-            viewRole.setDescription("User thường - xem pitch, tạo/sửa booking");
-            viewRole.setPermissions(viewPermissions);
-
-            roleRepository.save(viewRole);
         }
+
+        viewRole.setDescription("User thường - xem pitch, tạo/sửa booking");
+        viewRole.setPermissions(viewPermissions);
+        roleRepository.save(viewRole);
 
         // 3. Tạo USER admin nếu chưa có
         User existingAdmin = userRepository.findByEmail(ADMIN_EMAIL);

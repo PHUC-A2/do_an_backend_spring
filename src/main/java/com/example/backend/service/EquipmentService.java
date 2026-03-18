@@ -16,15 +16,19 @@ import com.example.backend.domain.request.equipment.ReqUpdateEquipmentDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.equipment.ResEquipmentDTO;
 import com.example.backend.repository.EquipmentRepository;
+import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.util.error.IdInvalidException;
 
 @Service
 public class EquipmentService {
 
     private final EquipmentRepository equipmentRepository;
+    private final PitchEquipmentRepository pitchEquipmentRepository;
 
-    public EquipmentService(EquipmentRepository equipmentRepository) {
+    public EquipmentService(EquipmentRepository equipmentRepository,
+            PitchEquipmentRepository pitchEquipmentRepository) {
         this.equipmentRepository = equipmentRepository;
+        this.pitchEquipmentRepository = pitchEquipmentRepository;
     }
 
     public ResEquipmentDTO createEquipment(@NonNull ReqCreateEquipmentDTO req) {
@@ -35,7 +39,8 @@ public class EquipmentService {
         equipment.setAvailableQuantity(req.getTotalQuantity()); // ban đầu availableQuantity = totalQuantity
         equipment.setPrice(req.getPrice());
         equipment.setImageUrl(req.getImageUrl());
-        equipment.setStatus(req.getStatus() != null ? req.getStatus() : com.example.backend.util.constant.equipment.EquipmentStatusEnum.ACTIVE);
+        equipment.setStatus(req.getStatus() != null ? req.getStatus()
+                : com.example.backend.util.constant.equipment.EquipmentStatusEnum.ACTIVE);
 
         Equipment saved = equipmentRepository.save(equipment);
         return convertToResEquipmentDTO(saved);
@@ -62,7 +67,8 @@ public class EquipmentService {
 
     public Equipment getEquipmentById(@NonNull Long id) throws IdInvalidException {
         Optional<Equipment> opt = equipmentRepository.findById(id);
-        if (opt.isPresent()) return opt.get();
+        if (opt.isPresent())
+            return opt.get();
         throw new IdInvalidException("Không tìm thấy thiết bị với ID = " + id);
     }
 
@@ -72,7 +78,8 @@ public class EquipmentService {
         // Tính lại availableQuantity khi totalQuantity thay đổi
         int diff = req.getTotalQuantity() - equipment.getTotalQuantity();
         int newAvailable = equipment.getAvailableQuantity() + diff;
-        if (newAvailable < 0) newAvailable = 0;
+        if (newAvailable < 0)
+            newAvailable = 0;
 
         equipment.setName(req.getName());
         equipment.setDescription(req.getDescription());
@@ -88,6 +95,7 @@ public class EquipmentService {
 
     public void deleteEquipment(@NonNull Long id) throws IdInvalidException {
         getEquipmentById(id);
+        pitchEquipmentRepository.deleteByEquipmentId(id);
         equipmentRepository.deleteById(id);
     }
 

@@ -17,6 +17,7 @@ import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.pitch.ResCreatePitchDTO;
 import com.example.backend.domain.response.pitch.ResPitchDTO;
 import com.example.backend.domain.response.pitch.ResUpdatePitchDTO;
+import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.repository.PitchRepository;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -24,9 +25,11 @@ import com.example.backend.util.error.IdInvalidException;
 public class PitchService {
 
     private final PitchRepository pitchRepository;
+    private final PitchEquipmentRepository pitchEquipmentRepository;
 
-    public PitchService(PitchRepository pitchRepository) {
+    public PitchService(PitchRepository pitchRepository, PitchEquipmentRepository pitchEquipmentRepository) {
         this.pitchRepository = pitchRepository;
+        this.pitchEquipmentRepository = pitchEquipmentRepository;
     }
 
     public ResCreatePitchDTO createPitch(@NonNull ReqCreatePitchDTO req) {
@@ -99,9 +102,9 @@ public class PitchService {
 
         // Pitch pitch = this.getPitchById(id);
         this.getPitchById(id);
+        pitchEquipmentRepository.deleteByPitchId(id);
         this.pitchRepository.deleteById(id);
     }
-
 
     // req create -> entity
     @NonNull

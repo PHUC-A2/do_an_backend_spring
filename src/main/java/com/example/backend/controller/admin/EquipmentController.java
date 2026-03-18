@@ -47,6 +47,7 @@ public class EquipmentController {
 
     @GetMapping("/equipments")
     @ApiMessage("Lấy danh sách thiết bị")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('EQUIPMENT_VIEW_LIST')")
     public ResponseEntity<ResultPaginationDTO> getAllEquipments(
             @Filter Specification<Equipment> spec,
             @NonNull Pageable pageable) {
@@ -55,6 +56,7 @@ public class EquipmentController {
 
     @GetMapping("/equipments/{id}")
     @ApiMessage("Lấy thông tin thiết bị theo ID")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('EQUIPMENT_VIEW_DETAIL')")
     public ResponseEntity<ResEquipmentDTO> getEquipmentById(
             @PathVariable("id") @NonNull Long id) throws IdInvalidException {
         Equipment equipment = equipmentService.getEquipmentById(id);

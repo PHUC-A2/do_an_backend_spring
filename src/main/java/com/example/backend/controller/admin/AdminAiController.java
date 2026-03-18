@@ -1,6 +1,7 @@
 package com.example.backend.controller.admin;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +31,7 @@ public class AdminAiController {
 
     @PostMapping("/chat")
     @ApiMessage("Admin chat with AI")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('AI_CHAT_ADMIN')")
     public ResponseEntity<ResChatDTO> chat(@Valid @RequestBody ReqChatDTO req) {
         User user = null;
         try {
