@@ -207,8 +207,8 @@ public class NotificationService {
 
     private void sendFcmPush(User user, String title, String body) {
         if (user.getFcmToken() == null || user.getFcmToken().isBlank()) return;
-        if (FirebaseApp.getApps().isEmpty()) return;
         try {
+            if (FirebaseApp.getApps().isEmpty()) return;
             Message msg = Message.builder()
                     .setToken(user.getFcmToken())
                     .setNotification(com.google.firebase.messaging.Notification.builder()
@@ -217,8 +217,8 @@ public class NotificationService {
                             .build())
                     .build();
             FirebaseMessaging.getInstance().send(msg);
-        } catch (Exception e) {
-            log.warn("[FCM] Failed to send push to {}: {}", user.getEmail(), e.getMessage());
+        } catch (NoClassDefFoundError | Exception e) {
+            log.warn("[FCM] Push skipped for {}: {}", user.getEmail(), e.getMessage());
         }
     }
 
