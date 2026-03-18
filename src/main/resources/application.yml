@@ -51,3 +51,19 @@ admin:
   email: ${ADMIN_EMAIL}
   name: ${ADMIN_NAME}
   password: ${ADMIN_PASSWORD}
+
+ai:
+  groq:
+    api-key: ${GROQ_API_KEY:}
+    base-url: ${GROQ_BASE_URL:https://api.groq.com/openai}
+    model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-2.5-flash}
+  cloudflare:
+    api-token: ${CLOUDFLARE_API_TOKEN:}
+    account-id: ${CLOUDFLARE_ACCOUNT_ID:}
+    model: ${CLOUDFLARE_MODEL:@cf/meta/llama-3-8b-instruct}
+  chat:
+    max-off-topic-per-day: 15
+    max-on-topic-per-day: 100

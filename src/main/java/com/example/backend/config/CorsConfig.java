@@ -27,6 +27,8 @@ public class CorsConfig implements WebMvcConfigurer {
                         "http://192.168.1.10:5173",
                         "http://192.168.1.10:8080",
                         "http://192.168.1.6:5173",
+                        "http://72.20.10.4:8080",
+                        "http://172.20.10.4:5173",
                         "https://unvigorous-nondeleteriously-mandi.ngrok-free.dev",
                         "https://unvigorous-nondeleteriously-mandi.ngrok-free.dev",
                         "http://tbusport.utb.edu.vn",

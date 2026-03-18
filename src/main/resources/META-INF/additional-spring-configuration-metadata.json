@@ -1,37 +1,20 @@
-{"properties": [
-  {
-    "name": "payment.bank.code",
-    "type": "java.lang.String",
-    "description": "A description for 'payment.bank.code'"
-  },
-  {
-    "name": "payment.bank.account-no",
-    "type": "java.lang.String",
-    "description": "A description for 'payment.bank.account-no'"
-  },
-  {
-    "name": "payment.bank.account-name",
-    "type": "java.lang.String",
-    "description": "A description for 'payment.bank.account-name'"
-  },
-  {
-    "name": "admin.email",
-    "type": "java.lang.String",
-    "description": "A description for 'admin.email'"
-  },
-  {
-    "name": "admin.email",
-    "type": "java.lang.String",
-    "description": "A description for 'admin.email'"
-  },
-  {
-    "name": "admin.name",
-    "type": "java.lang.String",
-    "description": "A description for 'admin.name'"
-  },
-  {
-    "name": "admin.password",
-    "type": "java.lang.String",
-    "description": "A description for 'admin.password'"
-  }
-]}
+{
+  "properties": [
+    { "name": "ai.groq.api-key", "type": "java.lang.String" },
+    { "name": "ai.groq.base-url", "type": "java.lang.String" },
+    { "name": "ai.groq.model", "type": "java.lang.String" },
+    { "name": "ai.gemini.api-key", "type": "java.lang.String" },
+    { "name": "ai.gemini.model", "type": "java.lang.String" },
+    { "name": "ai.cloudflare.api-token", "type": "java.lang.String" },
+    { "name": "ai.cloudflare.account-id", "type": "java.lang.String" },
+    { "name": "ai.cloudflare.model", "type": "java.lang.String" },
+    { "name": "ai.chat.max-off-topic-per-day", "type": "java.lang.Integer" },
+    { "name": "ai.chat.max-on-topic-per-day", "type": "java.lang.Integer" },
+    { "name": "payment.bank.code", "type": "java.lang.String" },
+    { "name": "payment.bank.account-no", "type": "java.lang.String" },
+    { "name": "payment.bank.account-name", "type": "java.lang.String" },
+    { "name": "admin.email", "type": "java.lang.String" },
+    { "name": "admin.name", "type": "java.lang.String" },
+    { "name": "admin.password", "type": "java.lang.String" }
+  ]
+}
