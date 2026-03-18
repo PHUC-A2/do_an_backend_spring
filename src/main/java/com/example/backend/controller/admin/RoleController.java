@@ -88,7 +88,15 @@ public class RoleController {
 
     @PutMapping("/roles/{id}/assign-permissions")
     @ApiMessage("Gán danh sách permission cho role")
-    @PreAuthorize("hasAuthority('ALL') or hasAuthority('ROLE_ASSIGN_PERMISSION')")
+    // @PreAuthorize("hasAuthority('ALL') or
+    // hasAuthority('ROLE_ASSIGN_PERMISSION')")
+    // RoleController - assign-permissions
+    @PreAuthorize("""
+                hasAuthority('ALL') or
+                (hasAuthority('ROLE_ASSIGN_PERMISSION')
+                 and hasAuthority('ROLE_VIEW_DETAIL')
+                 and hasAuthority('PERMISSION_VIEW_LIST'))
+            """)
     public ResponseEntity<ResRoleListDTO> assignPermissions(
             @PathVariable Long id,
             @Valid @RequestBody ReqAssignPermissionsToRoleDTO req) throws IdInvalidException {

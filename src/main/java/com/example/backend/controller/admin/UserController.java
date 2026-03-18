@@ -109,7 +109,14 @@ public class UserController {
 
     @PutMapping("/users/{id}/assign-roles")
     @ApiMessage("Gán danh sách role cho user")
-    @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_ASSIGN_ROLE')")
+    // @PreAuthorize("hasAuthority('ALL') or hasAuthority('USER_ASSIGN_ROLE')")
+    // UserController - assign-roles
+    @PreAuthorize("""
+                hasAuthority('ALL') or
+                (hasAuthority('USER_ASSIGN_ROLE')
+                 and hasAuthority('USER_VIEW_DETAIL')
+                 and hasAuthority('ROLE_VIEW_LIST'))
+            """)
     public ResponseEntity<ResUserListDTO> assignRoles(
             @PathVariable @NonNull Long id,
             @Valid @RequestBody ReqAssignRolesToUserDTO req)
