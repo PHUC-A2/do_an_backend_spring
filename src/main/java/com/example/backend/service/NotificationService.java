@@ -25,6 +25,7 @@ import com.example.backend.domain.response.notification.ResNotificationDTO;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.repository.NotificationRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
@@ -130,7 +131,34 @@ public class NotificationService {
         notificationRepository.save(n);
 
         pushToUser(user.getEmail(), convertToDTO(n));
+        pushRingToActor(user.getEmail());
         sendFcmPush(user, resolvePushTitle(type), message);
+    }
+
+    private void pushRingToActor(String targetEmail) {
+        String actorEmail = SecurityUtil.getCurrentUserLogin().orElse("");
+        if (actorEmail.isBlank() || actorEmail.equalsIgnoreCase(targetEmail)) {
+            return;
+        }
+
+        List<SseEmitter> actorEmitters = emitters.get(actorEmail);
+        if (actorEmitters == null || actorEmitters.isEmpty()) {
+            return;
+        }
+
+        List<SseEmitter> dead = new ArrayList<>();
+        for (SseEmitter emitter : actorEmitters) {
+            try {
+                emitter.send(SseEmitter.event().name("ring").data("actor"));
+            } catch (Exception e) {
+                dead.add(emitter);
+            }
+        }
+
+        actorEmitters.removeAll(dead);
+        if (actorEmitters.isEmpty()) {
+            emitters.remove(actorEmail, actorEmitters);
+        }
     }
 
     private void pushToUser(String email, ResNotificationDTO dto) {
