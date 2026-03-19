@@ -85,13 +85,36 @@ public class NotificationService {
         emitter.onTimeout(cleanup);
         emitter.onError(e -> cleanup.run());
 
-        // Send a keep-alive comment immediately to establish connection
+        // Send an initial event immediately so reverse proxies flush headers/body.
         try {
-            emitter.send(SseEmitter.event().comment("connected"));
+            emitter.send(SseEmitter.event().name("connected").data("ok"));
         } catch (Exception ignored) {
         }
 
         return emitter;
+    }
+
+    @Scheduled(fixedDelay = 25_000)
+    public void sendSseKeepAlive() {
+        emitters.forEach((email, userEmitters) -> {
+            if (userEmitters == null || userEmitters.isEmpty()) {
+                return;
+            }
+
+            List<SseEmitter> dead = new ArrayList<>();
+            for (SseEmitter emitter : userEmitters) {
+                try {
+                    emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
+                } catch (Exception e) {
+                    dead.add(emitter);
+                }
+            }
+
+            userEmitters.removeAll(dead);
+            if (userEmitters.isEmpty()) {
+                emitters.remove(email, userEmitters);
+            }
+        });
     }
 
     // ──────────────────────────────────────────────────────────────

@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import jakarta.servlet.http.HttpServletResponse;
+
 import com.example.backend.domain.response.notification.ResNotificationDTO;
 import com.example.backend.service.NotificationService;
 import com.example.backend.util.SecurityUtil;
@@ -39,7 +41,11 @@ public class ClientNotificationController {
      * The endpoint is in the security whitelist; we decode the token here manually.
      */
     @GetMapping(value = "/notifications/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@RequestParam(required = false) String token) {
+    public SseEmitter subscribe(@RequestParam(required = false) String token, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("X-Accel-Buffering", "no");
+        response.setHeader("Connection", "keep-alive");
+
         String email = "";
         if (token != null && !token.isBlank()) {
             email = securityUtil.extractSubjectFromToken(token).orElse("");
