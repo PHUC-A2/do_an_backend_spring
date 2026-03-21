@@ -61,6 +61,10 @@ public class Equipment {
     @Column(nullable = false)
     private EquipmentStatusEnum status = EquipmentStatusEnum.ACTIVE;
 
+    /** Ghi chú tình trạng thiết bị (hiển thị khi mượn / biên bản). */
+    @Column(columnDefinition = "TEXT")
+    private String conditionNote;
+
     @OneToMany(mappedBy = "equipment", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<BookingEquipment> bookingEquipments = new ArrayList<>();

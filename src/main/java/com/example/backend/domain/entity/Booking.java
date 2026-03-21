@@ -6,8 +6,6 @@ import java.time.LocalDateTime;
 
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
-import com.example.backend.util.constant.booking.ShirtOptionEnum;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,9 +58,6 @@ public class Booking {
 
     @Column(nullable = false)
     private Long durationMinutes; // thời lượng phút // số phút thuê
-
-    @Enumerated(EnumType.STRING)
-    private ShirtOptionEnum shirtOption = ShirtOptionEnum.WITHOUT_PITCH_SHIRT;
 
     private String contactPhone;
 

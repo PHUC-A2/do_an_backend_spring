@@ -2,8 +2,6 @@ package com.example.backend.domain.request.booking;
 
 import java.time.LocalDateTime;
 
-import com.example.backend.util.constant.booking.ShirtOptionEnum;
-
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,8 +22,6 @@ public class ReqCreateBookingDTO {
 
     @NotNull(message = "thời gian kết thúc không được để trống")
     private LocalDateTime endDateTime;
-
-    private ShirtOptionEnum shirtOption;
 
     private String contactPhone;
 }

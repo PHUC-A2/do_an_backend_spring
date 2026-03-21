@@ -1,6 +1,7 @@
 package com.example.backend.domain.entity;
 
 import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
+import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -54,4 +55,42 @@ public class BookingEquipment {
     // Soft-delete phía client: true = ẩn khỏi danh sách của client, admin vẫn thấy
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     private boolean deletedByClient = false;
+
+    /** Cố định / lưu động — phải khớp cấu hình pitch_equipments. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "equipment_mobility", length = 16)
+    private EquipmentMobilityEnum equipmentMobility;
+
+    @Column(columnDefinition = "TEXT")
+    private String borrowConditionNote;
+
+    @Column(columnDefinition = "TEXT")
+    private String returnConditionNote;
+
+    /** Số mảnh trả lại tình trạng tốt (khi đã hoàn tất kiểm đếm). */
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private Integer quantityReturnedGood = 0;
+
+    /** Số mảnh báo mất. */
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private Integer quantityLost = 0;
+
+    /** Số mảnh báo hỏng (đã nhận lại nhưng không còn dùng được). */
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
+    private Integer quantityDamaged = 0;
+
+    /** Người mượn ký xác nhận (bắt buộc khi có mất/hỏng). */
+    @Column(length = 120)
+    private String borrowerSignName;
+
+    /** Nhân viên / bên giao nhận ký (bắt buộc khi có mất/hỏng). */
+    @Column(length = 120)
+    private String staffSignName;
+
+    /**
+     * Họ tên tài khoản đặt sân (snapshot lúc hoàn tất biên bản) — luôn lưu để in/audit,
+     * không phụ thuộc đổi tên user sau này.
+     */
+    @Column(length = 200)
+    private String bookingBorrowerSnapshot;
 }

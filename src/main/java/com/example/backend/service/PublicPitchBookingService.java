@@ -100,19 +100,26 @@ public class PublicPitchBookingService {
 
                 LocalDateTime cursor = date.atTime(openTime);
                 LocalDateTime end = date.atTime(closeTime);
+                LocalDateTime now = LocalDateTime.now();
 
                 while (cursor.isBefore(end)) {
 
                         LocalDateTime slotStart = cursor;
                         LocalDateTime slotEnd = slotStart.plusMinutes(slotMinutes);
 
-                        boolean isBusy = bookings.stream().anyMatch(b -> slotStart.isBefore(b.getEnd()) &&
-                                        slotEnd.isAfter(b.getStart()));
+                        SlotStatus slotStatus;
+                        if (!slotEnd.isAfter(now)) {
+                                slotStatus = SlotStatus.PAST;
+                        } else {
+                                boolean isBusy = bookings.stream().anyMatch(b -> slotStart.isBefore(b.getEnd()) &&
+                                                slotEnd.isAfter(b.getStart()));
+                                slotStatus = isBusy ? SlotStatus.BUSY : SlotStatus.FREE;
+                        }
 
                         slots.add(new ResPitchTimelineSlotDTO(
                                         slotStart,
                                         slotEnd,
-                                        isBusy ? SlotStatus.BUSY : SlotStatus.FREE));
+                                        slotStatus));
 
                         cursor = slotEnd;
                 }

@@ -1,7 +1,11 @@
 package com.example.backend.domain.entity;
 
+import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -47,4 +51,12 @@ public class PitchEquipment {
 
     @Column(columnDefinition = "TEXT")
     private String note; // Ghi chú thêm cho hiển thị phía client
+
+    /**
+     * FIXED: thiết bị cố định / mô tả sân (không mượn qua booking).
+     * MOVABLE: thiết bị cho mượn thêm khi đặt sân (có luồng mượn–trả).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "equipment_mobility", length = 16)
+    private EquipmentMobilityEnum equipmentMobility = EquipmentMobilityEnum.FIXED;
 }

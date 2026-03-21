@@ -34,4 +34,6 @@ public class ReqUpdateEquipmentDTO {
 
     @NotNull(message = "Trạng thái không được để trống")
     private EquipmentStatusEnum status;
+
+    private String conditionNote;
 }

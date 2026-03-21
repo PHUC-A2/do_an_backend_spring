@@ -24,10 +24,19 @@ public class ClientPublicPitchEquipmentController {
         this.pitchEquipmentService = pitchEquipmentService;
     }
 
+    /** Toàn bộ thiết bị gắn sân (cố định + cho mượn) — dùng cho trang chi tiết / mô tả sân. */
     @GetMapping("/pitches/{pitchId}/pitch-equipments")
-    @ApiMessage("Lấy danh sách thiết bị cố định theo sân")
-    public ResponseEntity<List<ResPitchEquipmentDTO>> getByPitchId(@PathVariable @NonNull Long pitchId)
+    @ApiMessage("Danh sách thiết bị gắn sân (đầy đủ)")
+    public ResponseEntity<List<ResPitchEquipmentDTO>> getCatalog(@PathVariable @NonNull Long pitchId)
             throws IdInvalidException {
-        return ResponseEntity.ok(pitchEquipmentService.getByPitchId(pitchId));
+        return ResponseEntity.ok(pitchEquipmentService.getPublicCatalogByPitchId(pitchId));
+    }
+
+    /** Chỉ thiết bị lưu động (cho mượn), ACTIVE và còn hàng — dùng khi đặt sân / mượn kèm. */
+    @GetMapping("/pitches/{pitchId}/pitch-equipments/borrowable")
+    @ApiMessage("Thiết bị có thể mượn thêm (lưu động)")
+    public ResponseEntity<List<ResPitchEquipmentDTO>> getBorrowable(@PathVariable @NonNull Long pitchId)
+            throws IdInvalidException {
+        return ResponseEntity.ok(pitchEquipmentService.getPublicBorrowableByPitchId(pitchId));
     }
 }

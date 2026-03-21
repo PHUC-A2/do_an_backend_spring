@@ -26,7 +26,6 @@ import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
-import com.example.backend.util.constant.booking.ShirtOptionEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
 import com.example.backend.util.error.BadRequestException;
@@ -122,8 +121,6 @@ public class BookingService {
         booking.setPitch(pitch);
         booking.setStartDateTime(req.getStartDateTime());
         booking.setEndDateTime(req.getEndDateTime());
-        booking.setShirtOption(
-                req.getShirtOption() != null ? req.getShirtOption() : ShirtOptionEnum.WITHOUT_PITCH_SHIRT);
         booking.setContactPhone(contactPhone);
         booking.setDurationMinutes(durationMinutes);
         booking.setTotalPrice(totalPrice);
@@ -313,10 +310,6 @@ public class BookingService {
         booking.setEndDateTime(end);
         booking.setDurationMinutes(durationMinutes);
         booking.setTotalPrice(totalPrice);
-        booking.setShirtOption(
-                req.getShirtOption() != null
-                        ? req.getShirtOption()
-                        : booking.getShirtOption());
         booking.setContactPhone(
                 resolveContactPhone(booking.getUser(), req.getContactPhone()));
         // 9. Save
@@ -373,20 +366,20 @@ public class BookingService {
             userName = booking.getUser().getName(); // fallback sang name nếu fullName null
         }
 
-        return new ResCreateBookingDTO(
-                booking.getId(),
-                booking.getUser().getId(),
-                userName,
-                booking.getPitch().getId(),
-                booking.getPitch().getName(),
-                booking.getStartDateTime(),
-                booking.getEndDateTime(),
-                booking.getShirtOption(),
-                booking.getContactPhone(),
-                booking.getDurationMinutes(),
-                booking.getTotalPrice(),
-                booking.getCreatedAt(),
-                booking.getCreatedBy());
+        ResCreateBookingDTO res = new ResCreateBookingDTO();
+        res.setId(booking.getId());
+        res.setUserId(booking.getUser().getId());
+        res.setUserName(userName);
+        res.setPitchId(booking.getPitch().getId());
+        res.setPitchName(booking.getPitch().getName());
+        res.setStartDateTime(booking.getStartDateTime());
+        res.setEndDateTime(booking.getEndDateTime());
+        res.setContactPhone(booking.getContactPhone());
+        res.setDurationMinutes(booking.getDurationMinutes());
+        res.setTotalPrice(booking.getTotalPrice());
+        res.setCreatedAt(booking.getCreatedAt());
+        res.setCreatedBy(booking.getCreatedBy());
+        return res;
     }
 
     // convert update
@@ -397,7 +390,6 @@ public class BookingService {
         res.setId(booking.getId());
         res.setStartDateTime(booking.getStartDateTime());
         res.setEndDateTime(booking.getEndDateTime());
-        res.setShirtOption(booking.getShirtOption());
         res.setContactPhone(booking.getContactPhone());
         res.setDurationMinutes(booking.getDurationMinutes());
         res.setTotalPrice(booking.getTotalPrice());
@@ -436,7 +428,6 @@ public class BookingService {
         res.setPitchName(booking.getPitch().getName());
         res.setStartDateTime(booking.getStartDateTime());
         res.setEndDateTime(booking.getEndDateTime());
-        res.setShirtOption(booking.getShirtOption());
         res.setContactPhone(booking.getContactPhone());
         res.setDurationMinutes(booking.getDurationMinutes());
         res.setTotalPrice(booking.getTotalPrice());

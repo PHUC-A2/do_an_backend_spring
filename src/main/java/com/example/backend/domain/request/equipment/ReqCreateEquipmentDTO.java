@@ -33,4 +33,6 @@ public class ReqCreateEquipmentDTO {
     private String imageUrl; // tên file ảnh, ví dụ: ball.jpg
 
     private EquipmentStatusEnum status = EquipmentStatusEnum.ACTIVE;
+
+    private String conditionNote;
 }

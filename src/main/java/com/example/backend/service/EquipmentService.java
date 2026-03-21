@@ -41,6 +41,7 @@ public class EquipmentService {
         equipment.setImageUrl(req.getImageUrl());
         equipment.setStatus(req.getStatus() != null ? req.getStatus()
                 : com.example.backend.util.constant.equipment.EquipmentStatusEnum.ACTIVE);
+        equipment.setConditionNote(req.getConditionNote());
 
         Equipment saved = equipmentRepository.save(equipment);
         return convertToResEquipmentDTO(saved);
@@ -88,6 +89,7 @@ public class EquipmentService {
         equipment.setPrice(req.getPrice());
         equipment.setImageUrl(req.getImageUrl());
         equipment.setStatus(req.getStatus());
+        equipment.setConditionNote(req.getConditionNote());
 
         Equipment saved = equipmentRepository.save(equipment);
         return convertToResEquipmentDTO(saved);
@@ -109,6 +111,7 @@ public class EquipmentService {
         res.setPrice(equipment.getPrice());
         res.setImageUrl(equipment.getImageUrl());
         res.setStatus(equipment.getStatus());
+        res.setConditionNote(equipment.getConditionNote());
         res.setCreatedAt(equipment.getCreatedAt());
         res.setUpdatedAt(equipment.getUpdatedAt());
         res.setCreatedBy(equipment.getCreatedBy());

@@ -14,9 +14,6 @@ import lombok.NoArgsConstructor;
 public class ResPitchTimelineSlotDTO {
     private LocalDateTime start;
     private LocalDateTime end;
-    private SlotStatus status; // FREE | BUSY
-    /*
-     * FREE, // chưa có ai đặt -> cho phép đặt
-     * BUSY // đã có booking trùng → không cho đặt
-     */
+    /** PAST | FREE | BUSY */
+    private SlotStatus status;
 }

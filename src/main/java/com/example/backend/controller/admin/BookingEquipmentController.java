@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.backend.domain.request.bookingequipment.ReqCreateBookingEquipmentDTO;
 import com.example.backend.domain.request.bookingequipment.ReqUpdateBookingEquipmentStatusDTO;
 import com.example.backend.domain.response.bookingequipment.ResBookingEquipmentDTO;
+import com.example.backend.domain.response.equipment.ResEquipmentBorrowLogDTO;
+import com.example.backend.domain.response.equipment.ResEquipmentUsageStatsDTO;
 import com.example.backend.service.BookingEquipmentService;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.error.IdInvalidException;
@@ -67,5 +69,19 @@ public class BookingEquipmentController {
             @PathVariable Long id,
             @Valid @RequestBody ReqUpdateBookingEquipmentStatusDTO dto) throws IdInvalidException {
         return ResponseEntity.ok(bookingEquipmentService.updateStatusByAdmin(id, dto));
+    }
+
+    @GetMapping("/equipment-borrow-logs")
+    @ApiMessage("Nhật ký mượn/trả thiết bị (gần nhất)")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_EQUIPMENT_VIEW')")
+    public ResponseEntity<List<ResEquipmentBorrowLogDTO>> getBorrowLogs() {
+        return ResponseEntity.ok(bookingEquipmentService.getRecentBorrowLogs());
+    }
+
+    @GetMapping("/equipment-usage-stats")
+    @ApiMessage("Thống kê số lần mượn theo thiết bị và theo sân")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_EQUIPMENT_VIEW')")
+    public ResponseEntity<ResEquipmentUsageStatsDTO> getUsageStats() {
+        return ResponseEntity.ok(bookingEquipmentService.getUsageStats());
     }
 }

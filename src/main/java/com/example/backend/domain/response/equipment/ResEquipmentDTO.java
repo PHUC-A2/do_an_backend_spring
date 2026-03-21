@@ -21,6 +21,7 @@ public class ResEquipmentDTO {
     private BigDecimal price;
     private String imageUrl;
     private EquipmentStatusEnum status;
+    private String conditionNote;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

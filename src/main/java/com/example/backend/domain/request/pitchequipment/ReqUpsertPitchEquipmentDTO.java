@@ -1,5 +1,7 @@
 package com.example.backend.domain.request.pitchequipment;
 
+import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
+
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -21,4 +23,7 @@ public class ReqUpsertPitchEquipmentDTO {
     private String specification;
 
     private String note;
+
+    /** Mặc định FIXED nếu không gửi. */
+    private EquipmentMobilityEnum equipmentMobility;
 }
