@@ -15,11 +15,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 import com.example.backend.domain.entity.Equipment;
 import com.example.backend.domain.request.equipment.ReqCreateEquipmentDTO;
 import com.example.backend.domain.request.equipment.ReqUpdateEquipmentDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.equipment.ResEquipmentDTO;
+import com.example.backend.domain.response.equipment.ResEquipmentPitchAssignmentDTO;
 import com.example.backend.service.EquipmentService;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.error.IdInvalidException;
@@ -61,6 +64,14 @@ public class EquipmentController {
             @PathVariable("id") @NonNull Long id) throws IdInvalidException {
         Equipment equipment = equipmentService.getEquipmentById(id);
         return ResponseEntity.ok(equipmentService.convertToResEquipmentDTO(equipment));
+    }
+
+    @GetMapping("/equipments/{id}/pitch-assignments")
+    @ApiMessage("Danh sách sân đang gắn thiết bị")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('EQUIPMENT_VIEW_DETAIL')")
+    public ResponseEntity<List<ResEquipmentPitchAssignmentDTO>> getPitchAssignmentsForEquipment(
+            @PathVariable("id") @NonNull Long id) throws IdInvalidException {
+        return ResponseEntity.ok(equipmentService.getPitchAssignmentsForEquipment(id));
     }
 
     @PutMapping("/equipments/{id}")

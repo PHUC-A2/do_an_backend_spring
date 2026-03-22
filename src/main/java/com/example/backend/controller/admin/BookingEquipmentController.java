@@ -71,6 +71,13 @@ public class BookingEquipmentController {
         return ResponseEntity.ok(bookingEquipmentService.updateStatusByAdmin(id, dto));
     }
 
+    @PostMapping("/booking-equipments/{id}/confirm-return")
+    @ApiMessage("Admin xác nhận biên bản trả (sau khi khách ghi nhận trả)")
+    @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_EQUIPMENT_UPDATE')")
+    public ResponseEntity<ResBookingEquipmentDTO> confirmReturn(@PathVariable Long id) throws IdInvalidException {
+        return ResponseEntity.ok(bookingEquipmentService.confirmReturnByAdmin(id));
+    }
+
     @GetMapping("/equipment-borrow-logs")
     @ApiMessage("Nhật ký mượn/trả thiết bị (gần nhất)")
     @PreAuthorize("hasAuthority('ALL') or hasAuthority('BOOKING_EQUIPMENT_VIEW')")

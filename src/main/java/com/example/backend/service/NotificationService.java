@@ -205,6 +205,17 @@ public class NotificationService {
         notificationRepository.save(n);
     }
 
+    /** Ẩn toàn bộ thông báo khỏi lịch sử người dùng (soft delete). */
+    public void softDeleteAllForUser(String email) throws IdInvalidException {
+        User user = userService.handleGetUserByUsername(email);
+        List<Notification> list = notificationRepository.findByUserOrderByCreatedAtDesc(user)
+                .stream()
+                .filter(n -> !n.isDeletedByUser())
+                .toList();
+        list.forEach(n -> n.setDeletedByUser(true));
+        notificationRepository.saveAll(list);
+    }
+
     public long countUnread(String email) throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
         return notificationRepository.countByUserAndIsReadFalse(user);

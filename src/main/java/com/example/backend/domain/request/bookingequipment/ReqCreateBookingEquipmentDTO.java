@@ -29,4 +29,12 @@ public class ReqCreateBookingEquipmentDTO {
 
     /** Ghi chú biên bản lúc mượn (tình trạng, kiểm tra). */
     private String borrowConditionNote;
+
+    /**
+     * Bắt buộc {@code true} khi khách tự tạo mượn: đã xem/xác nhận tình trạng thiết bị (tránh khiếu nại sau).
+     */
+    private Boolean borrowConditionAcknowledged;
+
+    /** Có muốn in hoặc lưu biên bản mượn (chữ ký chủ sân) hay không — chỉ ghi nhận khi {@code true}. */
+    private Boolean borrowReportPrintOptIn;
 }

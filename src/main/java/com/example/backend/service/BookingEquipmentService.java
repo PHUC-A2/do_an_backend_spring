@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -30,6 +31,7 @@ import com.example.backend.util.constant.equipment.EquipmentBorrowLogTypeEnum;
 import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
 import com.example.backend.util.constant.equipment.EquipmentStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
+import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -121,12 +123,22 @@ public class BookingEquipmentService {
         be.setEquipmentMobility(req.getEquipmentMobility());
         be.setBorrowConditionNote(req.getBorrowConditionNote());
 
+        boolean clientBorrow = notifyClient;
+        if (clientBorrow && !Boolean.TRUE.equals(req.getBorrowConditionAcknowledged())) {
+            throw new BadRequestException(
+                    "Vui lòng xác nhận đã kiểm tra tình trạng thiết bị (biên bản mượn) trước khi mượn.");
+        }
+        be.setBorrowConditionAcknowledged(!clientBorrow || Boolean.TRUE.equals(req.getBorrowConditionAcknowledged()));
+        be.setBorrowReportPrintOptIn(Boolean.TRUE.equals(req.getBorrowReportPrintOptIn()));
+
         bookingEquipmentRepository.save(be);
 
         equipment.setAvailableQuantity(equipment.getAvailableQuantity() - req.getQuantity());
         equipmentRepository.save(equipment);
 
-        appendLog(be, EquipmentBorrowLogTypeEnum.BORROW, req.getBorrowConditionNote());
+        User borrower = booking.getUser();
+        appendLog(be, EquipmentBorrowLogTypeEnum.BORROW, req.getBorrowConditionNote(), userDisplayName(borrower),
+                safePhone(borrower));
 
         String actorName = booking.getUser().getFullName() != null && !booking.getUser().getFullName().isBlank()
                 ? booking.getUser().getFullName()
@@ -149,23 +161,30 @@ public class BookingEquipmentService {
     @Transactional
     public ResBookingEquipmentDTO updateStatusByClient(@NonNull Long id, ReqUpdateBookingEquipmentStatusDTO req)
             throws IdInvalidException {
-        return updateStatusInternal(id, req, false, true);
+        return updateStatusInternal(id, req, false, true, true);
     }
 
     @Transactional
     public ResBookingEquipmentDTO updateStatusByAdmin(@NonNull Long id, ReqUpdateBookingEquipmentStatusDTO req)
             throws IdInvalidException {
-        return updateStatusInternal(id, req, true, false);
+        return updateStatusInternal(id, req, true, false, false);
     }
 
     private ResBookingEquipmentDTO updateStatusInternal(@NonNull Long id, ReqUpdateBookingEquipmentStatusDTO req,
-            boolean notifyClient, boolean notifyAdmins)
+            boolean notifyClient, boolean notifyAdmins, boolean submittedByClient)
             throws IdInvalidException {
 
         BookingEquipment be = getById(id);
 
         if (be.getStatus() != BookingEquipmentStatusEnum.BORROWED) {
             throw new BadRequestException("Chỉ có thể cập nhật trạng thái khi thiết bị đang được mượn");
+        }
+
+        if (submittedByClient) {
+            if (!StringUtils.hasText(req.getReceiverName()) || !StringUtils.hasText(req.getReceiverPhone())) {
+                throw new BadRequestException(
+                        "Vui lòng nhập đầy đủ họ tên và số điện thoại người nhận thiết bị tại sân (bên giao nhận).");
+            }
         }
 
         Equipment equipment = be.getEquipment();
@@ -180,15 +199,26 @@ public class BookingEquipmentService {
             newStatus = applyLegacyStatusChange(be, equipment, req.getStatus(), req);
         }
 
+        if (submittedByClient) {
+            be.setReturnAdminConfirmed(false);
+            be.setReturnAdminConfirmedAt(null);
+            be.setReturnAdminConfirmedBy(null);
+        } else {
+            be.setReturnAdminConfirmed(true);
+            be.setReturnAdminConfirmedAt(Instant.now());
+            be.setReturnAdminConfirmedBy(SecurityUtil.getCurrentUserLogin().orElse(""));
+        }
+
         bookingEquipmentRepository.save(be);
         equipmentRepository.save(equipment);
 
         String returnNote = req.getReturnConditionNote();
         String breakdown = String.format("Trả tốt: %d — Mất: %d — Hỏng: %d",
                 be.getQuantityReturnedGood(), be.getQuantityLost(), be.getQuantityDamaged());
-        appendLog(be, EquipmentBorrowLogTypeEnum.RETURN,
-                (returnNote != null && !returnNote.isBlank() ? returnNote + " — " : "")
-                        + breakdown + " — Trạng thái: " + mapStatusToVietnamese(newStatus));
+        String returnLogNote = (returnNote != null && !returnNote.isBlank() ? returnNote + " — " : "")
+                + breakdown + " — Trạng thái: " + mapStatusToVietnamese(newStatus);
+        appendLog(be, EquipmentBorrowLogTypeEnum.RETURN, returnLogNote, be.getReturnerNameSnapshot(),
+                be.getReturnerPhoneSnapshot());
 
         NotificationTypeEnum notifType = mapStatusToNotificationType(newStatus);
         String statusVi = mapStatusToVietnamese(newStatus);
@@ -259,6 +289,7 @@ public class BookingEquipmentService {
         be.setBorrowerSignName(trimToNull(req.getBorrowerSignName()));
         be.setStaffSignName(trimToNull(req.getStaffSignName()));
         be.setBookingBorrowerSnapshot(userDisplayName(be.getBooking().getUser()));
+        applyReturnerSnapshots(be, req);
 
         BookingEquipmentStatusEnum derived;
         if (l == q) {
@@ -316,7 +347,35 @@ public class BookingEquipmentService {
         be.setBorrowerSignName(null);
         be.setStaffSignName(null);
         be.setBookingBorrowerSnapshot(userDisplayName(be.getBooking().getUser()));
+        applyReturnerSnapshots(be, req);
         return newStatus;
+    }
+
+    private void applyReturnerSnapshots(BookingEquipment be, ReqUpdateBookingEquipmentStatusDTO req) {
+        User u = be.getBooking().getUser();
+        String rn = trimToNull(req.getReturnerName());
+        String rp = trimToNull(req.getReturnerPhone());
+        be.setReturnerNameSnapshot(rn != null ? rn : userDisplayName(u));
+        be.setReturnerPhoneSnapshot(rp != null ? rp : safePhone(u));
+        be.setReturnReportPrintOptIn(req.getReturnReportPrintOptIn());
+        be.setReceiverNameSnapshot(trimToNull(req.getReceiverName()));
+        be.setReceiverPhoneSnapshot(trimToNull(req.getReceiverPhone()));
+    }
+
+    @Transactional
+    public ResBookingEquipmentDTO confirmReturnByAdmin(@NonNull Long id) throws IdInvalidException {
+        BookingEquipment be = getById(id);
+        if (be.getStatus() == BookingEquipmentStatusEnum.BORROWED) {
+            throw new BadRequestException("Thiết bị chưa có thông tin trả.");
+        }
+        if (be.isReturnAdminConfirmed()) {
+            throw new BadRequestException("Biên bản trả đã được xác nhận");
+        }
+        be.setReturnAdminConfirmed(true);
+        be.setReturnAdminConfirmedAt(Instant.now());
+        be.setReturnAdminConfirmedBy(SecurityUtil.getCurrentUserLogin().orElse(""));
+        bookingEquipmentRepository.save(be);
+        return convertToResDTO(be);
     }
 
     private static String userDisplayName(User u) {
@@ -332,11 +391,22 @@ public class BookingEquipmentService {
         return u.getEmail();
     }
 
-    private void appendLog(BookingEquipment be, EquipmentBorrowLogTypeEnum type, String notes) {
+    private static String safePhone(User u) {
+        if (u == null || u.getPhoneNumber() == null) {
+            return null;
+        }
+        String t = u.getPhoneNumber().trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    private void appendLog(BookingEquipment be, EquipmentBorrowLogTypeEnum type, String notes, String actorName,
+            String actorPhone) {
         EquipmentBorrowLog log = new EquipmentBorrowLog();
         log.setBookingEquipment(be);
         log.setLogType(type);
         log.setNotes(notes);
+        log.setActorName(actorName);
+        log.setActorPhone(actorPhone);
         equipmentBorrowLogRepository.save(log);
     }
 
@@ -368,16 +438,34 @@ public class BookingEquipmentService {
 
     private ResEquipmentBorrowLogDTO toBorrowLogDto(EquipmentBorrowLog l) {
         BookingEquipment be = l.getBookingEquipment();
+        com.example.backend.domain.entity.Booking b = be.getBooking();
+        User u = b.getUser();
+        var pitch = b.getPitch();
+
         ResEquipmentBorrowLogDTO d = new ResEquipmentBorrowLogDTO();
         d.setId(l.getId());
         d.setBookingEquipmentId(be.getId());
-        d.setBookingId(be.getBooking().getId());
+        d.setBookingId(b.getId());
         d.setEquipmentId(be.getEquipment().getId());
         d.setEquipmentName(be.getEquipment().getName());
         d.setLogType(l.getLogType());
         d.setNotes(l.getNotes());
         d.setCreatedAt(l.getCreatedAt());
         d.setCreatedBy(l.getCreatedBy());
+
+        d.setBookingUserName(userDisplayName(u));
+        d.setBookingUserPhone(safePhone(u));
+        d.setPitchName(pitch != null ? pitch.getName() : null);
+        d.setActorName(l.getActorName() != null ? l.getActorName() : userDisplayName(u));
+        d.setActorPhone(l.getActorPhone() != null ? l.getActorPhone() : safePhone(u));
+        d.setBorrowConditionAcknowledged(be.isBorrowConditionAcknowledged());
+        d.setBorrowReportPrintOptIn(be.isBorrowReportPrintOptIn());
+        d.setReturnerNameSnapshot(be.getReturnerNameSnapshot());
+        d.setReturnerPhoneSnapshot(be.getReturnerPhoneSnapshot());
+        d.setReturnReportPrintOptIn(be.getReturnReportPrintOptIn());
+        d.setReceiverNameSnapshot(be.getReceiverNameSnapshot());
+        d.setReceiverPhoneSnapshot(be.getReceiverPhoneSnapshot());
+        d.setReturnAdminConfirmed(be.isReturnAdminConfirmed());
         return d;
     }
 
@@ -462,6 +550,16 @@ public class BookingEquipmentService {
         res.setBorrowerSignName(be.getBorrowerSignName());
         res.setStaffSignName(be.getStaffSignName());
         res.setBookingBorrowerSnapshot(be.getBookingBorrowerSnapshot());
+        res.setBorrowConditionAcknowledged(be.isBorrowConditionAcknowledged());
+        res.setBorrowReportPrintOptIn(be.isBorrowReportPrintOptIn());
+        res.setReturnerNameSnapshot(be.getReturnerNameSnapshot());
+        res.setReturnerPhoneSnapshot(be.getReturnerPhoneSnapshot());
+        res.setReturnReportPrintOptIn(be.getReturnReportPrintOptIn());
+        res.setReceiverNameSnapshot(be.getReceiverNameSnapshot());
+        res.setReceiverPhoneSnapshot(be.getReceiverPhoneSnapshot());
+        res.setReturnAdminConfirmed(be.isReturnAdminConfirmed());
+        res.setReturnAdminConfirmedAt(be.getReturnAdminConfirmedAt());
+        res.setReturnAdminConfirmedBy(be.getReturnAdminConfirmedBy());
         return res;
     }
 }

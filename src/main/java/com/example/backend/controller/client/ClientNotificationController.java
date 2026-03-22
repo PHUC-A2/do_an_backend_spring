@@ -87,6 +87,15 @@ public class ClientNotificationController {
         return ResponseEntity.ok(null);
     }
 
+    /** Path tách khỏi `/notifications/{id}` để tránh nhầm `id=all`. */
+    @DeleteMapping("/notifications/clear")
+    @ApiMessage("Xóa tất cả thông báo khỏi lịch sử")
+    public ResponseEntity<Void> softDeleteAll() throws IdInvalidException {
+        String email = SecurityUtil.getCurrentUserLogin().orElse("");
+        notificationService.softDeleteAllForUser(email);
+        return ResponseEntity.ok(null);
+    }
+
     @PostMapping("/notifications/fcm-token")
     @ApiMessage("Lưu FCM token")
     public ResponseEntity<Void> saveFcmToken(@RequestBody java.util.Map<String, String> body) {

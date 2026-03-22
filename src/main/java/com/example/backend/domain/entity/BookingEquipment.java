@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -93,4 +94,41 @@ public class BookingEquipment {
      */
     @Column(length = 200)
     private String bookingBorrowerSnapshot;
+
+    /** Khách xác nhận đã kiểm tra tình trạng thiết bị khi mượn (biên bản). */
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private boolean borrowConditionAcknowledged = true;
+
+    /** Khách có nhu cầu in / lưu biên bản mượn (chữ ký chủ sân). */
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private boolean borrowReportPrintOptIn = true;
+
+    /** Người giao trả thực tế (có thể khác người đặt). */
+    @Column(length = 200)
+    private String returnerNameSnapshot;
+
+    @Column(length = 32)
+    private String returnerPhoneSnapshot;
+
+    /** Có in / lưu biên bản trả hay không (lúc hoàn tất trả). */
+    private Boolean returnReportPrintOptIn;
+
+    /** Người nhận bên sân (nhân viên / bên giao nhận nhận lại thiết bị) — snapshot lúc trả. */
+    @Column(length = 200)
+    private String receiverNameSnapshot;
+
+    @Column(length = 32)
+    private String receiverPhoneSnapshot;
+
+    /**
+     * Admin đã xác nhận đã kiểm tra biên bản trả (bắt buộc nếu khách tự ghi nhận trả; admin tự nhập trả thì coi như đã
+     * xác nhận).
+     */
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private boolean returnAdminConfirmed = true;
+
+    private Instant returnAdminConfirmedAt;
+
+    @Column(length = 200)
+    private String returnAdminConfirmedBy;
 }

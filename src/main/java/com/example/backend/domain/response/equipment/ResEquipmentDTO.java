@@ -18,6 +18,10 @@ public class ResEquipmentDTO {
     private String description;
     private Integer totalQuantity;
     private Integer availableQuantity;
+    /** Tổng SL đã gắn trên mọi sân (pitch_equipments). */
+    private Integer quantityAllocatedOnPitches;
+    /** SL còn chưa gắn sân = totalQuantity - quantityAllocatedOnPitches (hiển thị “kho” khi cấu hình sân). */
+    private Integer quantityUnassignedToPitches;
     private BigDecimal price;
     private String imageUrl;
     private EquipmentStatusEnum status;

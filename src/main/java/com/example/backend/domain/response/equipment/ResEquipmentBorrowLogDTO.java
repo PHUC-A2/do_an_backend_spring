@@ -21,4 +21,25 @@ public class ResEquipmentBorrowLogDTO {
     private String notes;
     private Instant createdAt;
     private String createdBy;
+
+    /** Người đặt booking (tham chiếu). */
+    private String bookingUserName;
+    private String bookingUserPhone;
+
+    private String pitchName;
+
+    /** Người thực hiện ghi nhận mượn/trả tại thời điểm log. */
+    private String actorName;
+    private String actorPhone;
+
+    private Boolean borrowConditionAcknowledged;
+    private Boolean borrowReportPrintOptIn;
+    private String returnerNameSnapshot;
+    private String returnerPhoneSnapshot;
+    private Boolean returnReportPrintOptIn;
+
+    private String receiverNameSnapshot;
+    private String receiverPhoneSnapshot;
+
+    private Boolean returnAdminConfirmed;
 }

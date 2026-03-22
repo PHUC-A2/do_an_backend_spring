@@ -3,6 +3,7 @@ package com.example.backend.service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,10 +12,12 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Equipment;
+import com.example.backend.domain.entity.PitchEquipment;
 import com.example.backend.domain.request.equipment.ReqCreateEquipmentDTO;
 import com.example.backend.domain.request.equipment.ReqUpdateEquipmentDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.equipment.ResEquipmentDTO;
+import com.example.backend.domain.response.equipment.ResEquipmentPitchAssignmentDTO;
 import com.example.backend.repository.EquipmentRepository;
 import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.util.error.IdInvalidException;
@@ -73,6 +76,29 @@ public class EquipmentService {
         throw new IdInvalidException("Không tìm thấy thiết bị với ID = " + id);
     }
 
+    /**
+     * Các sân (tài sản) đang gắn thiết bị này trong bảng pitch_equipments.
+     */
+    public List<ResEquipmentPitchAssignmentDTO> getPitchAssignmentsForEquipment(@NonNull Long equipmentId)
+            throws IdInvalidException {
+        getEquipmentById(equipmentId);
+        return pitchEquipmentRepository.findByEquipment_IdOrderByPitch_IdAsc(equipmentId).stream()
+                .map(this::toPitchAssignmentDto)
+                .collect(Collectors.toList());
+    }
+
+    private ResEquipmentPitchAssignmentDTO toPitchAssignmentDto(PitchEquipment pe) {
+        ResEquipmentPitchAssignmentDTO dto = new ResEquipmentPitchAssignmentDTO();
+        dto.setPitchEquipmentId(pe.getId());
+        dto.setPitchId(pe.getPitch().getId());
+        dto.setPitchName(pe.getPitch().getName());
+        dto.setQuantity(pe.getQuantity());
+        dto.setEquipmentMobility(pe.getEquipmentMobility());
+        dto.setSpecification(pe.getSpecification());
+        dto.setNote(pe.getNote());
+        return dto;
+    }
+
     public ResEquipmentDTO updateEquipment(@NonNull Long id, ReqUpdateEquipmentDTO req) throws IdInvalidException {
         Equipment equipment = getEquipmentById(id);
 
@@ -108,6 +134,10 @@ public class EquipmentService {
         res.setDescription(equipment.getDescription());
         res.setTotalQuantity(equipment.getTotalQuantity());
         res.setAvailableQuantity(equipment.getAvailableQuantity());
+        int allocated = (int) pitchEquipmentRepository.sumQuantityByEquipmentId(equipment.getId());
+        res.setQuantityAllocatedOnPitches(allocated);
+        int unassigned = equipment.getTotalQuantity() - allocated;
+        res.setQuantityUnassignedToPitches(Math.max(0, unassigned));
         res.setPrice(equipment.getPrice());
         res.setImageUrl(equipment.getImageUrl());
         res.setStatus(equipment.getStatus());

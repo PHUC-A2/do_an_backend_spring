@@ -1,10 +1,12 @@
 package com.example.backend.service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.backend.domain.entity.Equipment;
 import com.example.backend.domain.entity.Pitch;
@@ -14,6 +16,7 @@ import com.example.backend.domain.response.pitchequipment.ResPitchEquipmentDTO;
 import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
 import com.example.backend.util.constant.equipment.EquipmentStatusEnum;
+import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
 @Service
@@ -60,6 +63,7 @@ public class PitchEquipmentService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ResPitchEquipmentDTO upsertPitchEquipment(
             @NonNull Long pitchId,
             @NonNull ReqUpsertPitchEquipmentDTO req) throws IdInvalidException {
@@ -70,6 +74,15 @@ public class PitchEquipmentService {
         PitchEquipment item = pitchEquipmentRepository
                 .findByPitchIdAndEquipmentId(pitchId, req.getEquipmentId())
                 .orElseGet(PitchEquipment::new);
+
+        int oldQty = item.getId() != null ? Optional.ofNullable(item.getQuantity()).orElse(0) : 0;
+        int newQty = req.getQuantity();
+        int sumOnPitches = (int) pitchEquipmentRepository.sumQuantityByEquipmentId(req.getEquipmentId());
+        int newTotalOnPitches = sumOnPitches - oldQty + newQty;
+        if (newTotalOnPitches > equipment.getTotalQuantity()) {
+            throw new BadRequestException(
+                    "Tổng số thiết bị gắn trên các sân không được vượt quá tồn kho (" + equipment.getTotalQuantity() + ").");
+        }
 
         item.setPitch(pitch);
         item.setEquipment(equipment);
@@ -84,6 +97,7 @@ public class PitchEquipmentService {
         return convertToResPitchEquipmentDTO(saved);
     }
 
+    @Transactional
     public void deletePitchEquipment(@NonNull Long pitchId, @NonNull Long equipmentId) throws IdInvalidException {
         pitchService.getPitchById(pitchId);
         equipmentService.getEquipmentById(equipmentId);

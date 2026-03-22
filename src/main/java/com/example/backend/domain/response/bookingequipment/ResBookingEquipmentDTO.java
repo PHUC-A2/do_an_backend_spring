@@ -1,5 +1,7 @@
 package com.example.backend.domain.response.bookingequipment;
 
+import java.time.Instant;
+
 import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
 
@@ -33,4 +35,17 @@ public class ResBookingEquipmentDTO {
     private String staffSignName;
     /** Họ tên người đặt sân (snapshot khi hoàn tất trả). */
     private String bookingBorrowerSnapshot;
+
+    private boolean borrowConditionAcknowledged;
+    private boolean borrowReportPrintOptIn;
+    private String returnerNameSnapshot;
+    private String returnerPhoneSnapshot;
+    private Boolean returnReportPrintOptIn;
+
+    private String receiverNameSnapshot;
+    private String receiverPhoneSnapshot;
+
+    private boolean returnAdminConfirmed;
+    private Instant returnAdminConfirmedAt;
+    private String returnAdminConfirmedBy;
 }

@@ -28,4 +28,17 @@ public class ReqUpdateBookingEquipmentStatusDTO {
 
     private String borrowerSignName;
     private String staffSignName;
+
+    /** Người trả thực tế (nếu khác người đặt booking). */
+    private String returnerName;
+
+    private String returnerPhone;
+
+    /** Người nhận thiết bị phía sân (bắt buộc khi khách ghi nhận trả). */
+    private String receiverName;
+
+    private String receiverPhone;
+
+    /** Có in / lưu biên bản trả hay không. */
+    private Boolean returnReportPrintOptIn;
 }

@@ -47,6 +47,13 @@ public class EquipmentBorrowLog {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    /** Người thực hiện thao tác (snapshot): mượn = thường là người đặt; trả = có thể là người khác. */
+    @Column(length = 200)
+    private String actorName;
+
+    @Column(length = 32)
+    private String actorPhone;
+
     private Instant createdAt;
 
     private String createdBy;
