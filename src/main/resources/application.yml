@@ -32,6 +32,8 @@ spring:
     web:
       pageable:
         one-indexed-parameters: true
+        # Khớp query FE (Pitch client + admin): ?page=1&pageSize=10
+        size-parameter: pageSize
 backend:
   jwt:
     base64-secret: ${JWT_SECRET}
