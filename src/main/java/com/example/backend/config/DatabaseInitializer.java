@@ -141,6 +141,13 @@ public class DatabaseInitializer implements CommandLineRunner {
         createPermissionIfNotExists("ROOM_UPDATE", "Cập nhật phòng tin");
         createPermissionIfNotExists("ROOM_DELETE", "Xóa phòng tin");
 
+        // Danh mục thiết bị phòng (/api/v2/admin/device-catalog)
+        createPermissionIfNotExists("DEVICE_CATALOG_VIEW_LIST", "Xem danh sách danh mục thiết bị");
+        createPermissionIfNotExists("DEVICE_CATALOG_VIEW_DETAIL", "Xem chi tiết danh mục thiết bị");
+        createPermissionIfNotExists("DEVICE_CATALOG_CREATE", "Tạo danh mục thiết bị");
+        createPermissionIfNotExists("DEVICE_CATALOG_UPDATE", "Cập nhật danh mục thiết bị");
+        createPermissionIfNotExists("DEVICE_CATALOG_DELETE", "Xóa danh mục thiết bị");
+
         // 2. Tạo ROLES nếu chưa có
         // if (countRoles == 0) {
         // List<Permission> allPermissions = permissionRepository.findAll();
@@ -206,6 +213,12 @@ public class DatabaseInitializer implements CommandLineRunner {
 
             // Phòng tin: chỉ xem danh sách / chi tiết
             if (p.getName().startsWith("ROOM_")
+                    && (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
+                viewPermissions.add(p);
+            }
+
+            // Danh mục thiết bị: chỉ xem
+            if (p.getName().startsWith("DEVICE_CATALOG_")
                     && (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
                 viewPermissions.add(p);
             }
