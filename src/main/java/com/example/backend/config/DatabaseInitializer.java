@@ -134,20 +134,6 @@ public class DatabaseInitializer implements CommandLineRunner {
         // AI chat
         createPermissionIfNotExists("AI_CHAT_ADMIN", "Admin sử dụng AI chat không giới hạn");
 
-        // Phòng tin học (REST /api/v2/admin/rooms)
-        createPermissionIfNotExists("ROOM_CREATE", "Tạo phòng tin học");
-        createPermissionIfNotExists("ROOM_VIEW_LIST", "Xem danh sách phòng tin");
-        createPermissionIfNotExists("ROOM_VIEW_DETAIL", "Xem chi tiết phòng tin");
-        createPermissionIfNotExists("ROOM_UPDATE", "Cập nhật phòng tin");
-        createPermissionIfNotExists("ROOM_DELETE", "Xóa phòng tin");
-
-        // Danh mục thiết bị phòng (/api/v2/admin/device-catalog)
-        createPermissionIfNotExists("DEVICE_CATALOG_VIEW_LIST", "Xem danh sách danh mục thiết bị");
-        createPermissionIfNotExists("DEVICE_CATALOG_VIEW_DETAIL", "Xem chi tiết danh mục thiết bị");
-        createPermissionIfNotExists("DEVICE_CATALOG_CREATE", "Tạo danh mục thiết bị");
-        createPermissionIfNotExists("DEVICE_CATALOG_UPDATE", "Cập nhật danh mục thiết bị");
-        createPermissionIfNotExists("DEVICE_CATALOG_DELETE", "Xóa danh mục thiết bị");
-
         // 2. Tạo ROLES nếu chưa có
         // if (countRoles == 0) {
         // List<Permission> allPermissions = permissionRepository.findAll();
@@ -208,18 +194,6 @@ public class DatabaseInitializer implements CommandLineRunner {
             // BOOKING: cho C-R-U, KHÔNG cho DELETE
             if (p.getName().startsWith("BOOKING_")
                     && !p.getName().equals("BOOKING_DELETE")) {
-                viewPermissions.add(p);
-            }
-
-            // Phòng tin: chỉ xem danh sách / chi tiết
-            if (p.getName().startsWith("ROOM_")
-                    && (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
-                viewPermissions.add(p);
-            }
-
-            // Danh mục thiết bị: chỉ xem
-            if (p.getName().startsWith("DEVICE_CATALOG_")
-                    && (p.getName().endsWith("_VIEW_LIST") || p.getName().endsWith("_VIEW_DETAIL"))) {
                 viewPermissions.add(p);
             }
         }
