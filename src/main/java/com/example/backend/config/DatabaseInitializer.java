@@ -134,6 +134,34 @@ public class DatabaseInitializer implements CommandLineRunner {
         createPermissionIfNotExists("DEVICE_UPDATE", "Cập nhật thiết bị theo tài sản");
         createPermissionIfNotExists("DEVICE_DELETE", "Xóa thiết bị theo tài sản");
 
+        // ASSET_USAGE (thuê/mượn tài sản — bảng asset_usages, khác booking sân)
+        createPermissionIfNotExists("ASSET_USAGE_VIEW_LIST", "Xem danh sách đăng ký sử dụng tài sản");
+        createPermissionIfNotExists("ASSET_USAGE_VIEW_DETAIL", "Xem chi tiết đăng ký sử dụng tài sản");
+        createPermissionIfNotExists("ASSET_USAGE_CREATE", "Tạo đăng ký sử dụng tài sản");
+        createPermissionIfNotExists("ASSET_USAGE_UPDATE", "Cập nhật đăng ký sử dụng tài sản");
+        createPermissionIfNotExists("ASSET_USAGE_DELETE", "Xóa đăng ký sử dụng tài sản");
+
+        // CHECKOUT (nhận tài sản — bảng checkouts, FK asset_usage_id)
+        createPermissionIfNotExists("CHECKOUT_VIEW_LIST", "Xem danh sách phiếu nhận tài sản");
+        createPermissionIfNotExists("CHECKOUT_VIEW_DETAIL", "Xem chi tiết phiếu nhận tài sản");
+        createPermissionIfNotExists("CHECKOUT_CREATE", "Tạo phiếu nhận tài sản");
+        createPermissionIfNotExists("CHECKOUT_UPDATE", "Cập nhật phiếu nhận tài sản");
+        createPermissionIfNotExists("CHECKOUT_DELETE", "Xóa phiếu nhận tài sản");
+
+        // RETURN (trả tài sản — bảng returns, FK checkout_id)
+        createPermissionIfNotExists("RETURN_VIEW_LIST", "Xem danh sách phiếu trả tài sản");
+        createPermissionIfNotExists("RETURN_VIEW_DETAIL", "Xem chi tiết phiếu trả tài sản");
+        createPermissionIfNotExists("RETURN_CREATE", "Tạo phiếu trả tài sản");
+        createPermissionIfNotExists("RETURN_UPDATE", "Cập nhật phiếu trả tài sản");
+        createPermissionIfNotExists("RETURN_DELETE", "Xóa phiếu trả tài sản");
+
+        // DEVICE_ISSUE (sự cố thiết bị theo tài sản — bảng device_issues)
+        createPermissionIfNotExists("DEVICE_ISSUE_VIEW_LIST", "Xem danh sách sự cố thiết bị");
+        createPermissionIfNotExists("DEVICE_ISSUE_VIEW_DETAIL", "Xem chi tiết sự cố thiết bị");
+        createPermissionIfNotExists("DEVICE_ISSUE_CREATE", "Tạo báo cáo sự cố thiết bị");
+        createPermissionIfNotExists("DEVICE_ISSUE_UPDATE", "Cập nhật sự cố thiết bị");
+        createPermissionIfNotExists("DEVICE_ISSUE_DELETE", "Xóa sự cố thiết bị");
+
         // BOOKING_EQUIPMENT
         createPermissionIfNotExists("BOOKING_EQUIPMENT_VIEW", "Xem danh sách & chi tiết mượn thiết bị");
         createPermissionIfNotExists("BOOKING_EQUIPMENT_CREATE", "Tạo đơn mượn thiết bị");
