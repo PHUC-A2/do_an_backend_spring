@@ -120,6 +120,20 @@ public class DatabaseInitializer implements CommandLineRunner {
         createPermissionIfNotExists("EQUIPMENT_UPDATE", "Cập nhật thiết bị");
         createPermissionIfNotExists("EQUIPMENT_DELETE", "Xóa thiết bị");
 
+        // ASSET (tài sản — clone quyền theo pattern USER/PITCH)
+        createPermissionIfNotExists("ASSET_VIEW_LIST", "Xem danh sách tài sản");
+        createPermissionIfNotExists("ASSET_VIEW_DETAIL", "Xem chi tiết tài sản");
+        createPermissionIfNotExists("ASSET_CREATE", "Tạo tài sản");
+        createPermissionIfNotExists("ASSET_UPDATE", "Cập nhật tài sản");
+        createPermissionIfNotExists("ASSET_DELETE", "Xóa tài sản");
+
+        // DEVICE (thiết bị theo tài sản — bảng devices, khác EQUIPMENT sân)
+        createPermissionIfNotExists("DEVICE_VIEW_LIST", "Xem danh sách thiết bị theo tài sản");
+        createPermissionIfNotExists("DEVICE_VIEW_DETAIL", "Xem chi tiết thiết bị theo tài sản");
+        createPermissionIfNotExists("DEVICE_CREATE", "Tạo thiết bị theo tài sản");
+        createPermissionIfNotExists("DEVICE_UPDATE", "Cập nhật thiết bị theo tài sản");
+        createPermissionIfNotExists("DEVICE_DELETE", "Xóa thiết bị theo tài sản");
+
         // BOOKING_EQUIPMENT
         createPermissionIfNotExists("BOOKING_EQUIPMENT_VIEW", "Xem danh sách & chi tiết mượn thiết bị");
         createPermissionIfNotExists("BOOKING_EQUIPMENT_CREATE", "Tạo đơn mượn thiết bị");

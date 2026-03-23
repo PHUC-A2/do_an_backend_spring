@@ -25,7 +25,6 @@ import com.example.backend.domain.response.notification.ResNotificationDTO;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.repository.NotificationRepository;
 import com.example.backend.repository.UserRepository;
-import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
@@ -58,9 +57,19 @@ public class NotificationService {
     // Notify all active admins
     // ──────────────────────────────────────────────────────────────
 
+    /** Gửi thông báo cho mọi admin đang hoạt động. */
     public void notifyAdmins(NotificationTypeEnum type, String message) {
+        notifyAdmins(type, message, null);
+    }
+
+    /**
+     * Gửi thông báo cho admin, bỏ qua email (tránh trùng khi khách đặt sân vừa có vai trò ADMIN đã nhận thông báo phía khách).
+     */
+    public void notifyAdmins(NotificationTypeEnum type, String message, String excludeEmail) {
         userRepository.findDistinctByRoles_Name("ADMIN").stream()
                 .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
+                .filter(admin -> excludeEmail == null || excludeEmail.isBlank()
+                        || !admin.getEmail().equalsIgnoreCase(excludeEmail.trim()))
                 .forEach(admin -> createAndPush(admin, type, message));
     }
 
@@ -130,35 +139,9 @@ public class NotificationService {
         n.setRead(false);
         notificationRepository.save(n);
 
+        // Chỉ đẩy tới người nhận; không gửi sự kiện "ring" cho người đang thao tác (tránh admin bị kêu chuông khi xác nhận/từ chối hộ khách).
         pushToUser(user.getEmail(), convertToDTO(n));
-        pushRingToActor(user.getEmail());
         sendFcmPush(user, resolvePushTitle(type), message);
-    }
-
-    private void pushRingToActor(String targetEmail) {
-        String actorEmail = SecurityUtil.getCurrentUserLogin().orElse("");
-        if (actorEmail.isBlank() || actorEmail.equalsIgnoreCase(targetEmail)) {
-            return;
-        }
-
-        List<SseEmitter> actorEmitters = emitters.get(actorEmail);
-        if (actorEmitters == null || actorEmitters.isEmpty()) {
-            return;
-        }
-
-        List<SseEmitter> dead = new ArrayList<>();
-        for (SseEmitter emitter : actorEmitters) {
-            try {
-                emitter.send(SseEmitter.event().name("ring").data("actor"));
-            } catch (Exception e) {
-                dead.add(emitter);
-            }
-        }
-
-        actorEmitters.removeAll(dead);
-        if (actorEmitters.isEmpty()) {
-            emitters.remove(actorEmail, actorEmitters);
-        }
     }
 
     private void pushToUser(String email, ResNotificationDTO dto) {
