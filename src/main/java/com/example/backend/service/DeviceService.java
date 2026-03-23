@@ -47,6 +47,8 @@ public class DeviceService {
         d.setQuantity(req.getQuantity());
         d.setStatus(req.getStatus());
         d.setDeviceType(req.getDeviceType());
+        // Nếu admin upload ảnh thì lưu tên file vào imageUrl để client tự ghép /storage/device/.
+        d.setImageUrl(req.getImageUrl() != null ? req.getImageUrl().trim() : null);
         Device saved = deviceRepository.save(d);
         return convertToResCreateDeviceDTO(saved);
     }
@@ -68,6 +70,15 @@ public class DeviceService {
         return rs;
     }
 
+    public List<ResDeviceListDTO> getDevicesByAssetId(@NonNull Long assetId) {
+        List<Device> devices = deviceRepository.findByAsset_IdOrderByIdAsc(assetId);
+        List<ResDeviceListDTO> result = new ArrayList<>();
+        for (Device device : devices) {
+            result.add(convertToResDeviceListDTO(device));
+        }
+        return result;
+    }
+
     public Device getDeviceById(@NonNull Long id) throws IdInvalidException {
         Optional<Device> opt = deviceRepository.findById(id);
         if (opt.isPresent()) {
@@ -85,6 +96,8 @@ public class DeviceService {
         d.setQuantity(req.getQuantity());
         d.setStatus(req.getStatus());
         d.setDeviceType(req.getDeviceType());
+        // Cho phép cập nhật/khóa ảnh minh họa (tùy chọn).
+        d.setImageUrl(req.getImageUrl() != null ? req.getImageUrl().trim() : null);
         Device updated = deviceRepository.save(d);
         return convertToResUpdateDeviceDTO(updated);
     }
@@ -102,6 +115,7 @@ public class DeviceService {
         res.setQuantity(d.getQuantity());
         res.setStatus(d.getStatus());
         res.setDeviceType(d.getDeviceType());
+        res.setImageUrl(d.getImageUrl());
         res.setCreatedAt(d.getCreatedAt());
         return res;
     }
@@ -114,6 +128,7 @@ public class DeviceService {
         res.setQuantity(d.getQuantity());
         res.setStatus(d.getStatus());
         res.setDeviceType(d.getDeviceType());
+        res.setImageUrl(d.getImageUrl());
         res.setUpdatedAt(d.getUpdatedAt());
         res.setUpdatedBy(d.getUpdatedBy());
         return res;
@@ -129,6 +144,7 @@ public class DeviceService {
         res.setQuantity(d.getQuantity());
         res.setStatus(d.getStatus());
         res.setDeviceType(d.getDeviceType());
+        res.setImageUrl(d.getImageUrl());
         res.setCreatedAt(d.getCreatedAt());
         res.setUpdatedAt(d.getUpdatedAt());
         res.setCreatedBy(d.getCreatedBy());
@@ -146,6 +162,7 @@ public class DeviceService {
         res.setQuantity(d.getQuantity());
         res.setStatus(d.getStatus());
         res.setDeviceType(d.getDeviceType());
+        res.setImageUrl(d.getImageUrl());
         res.setCreatedAt(d.getCreatedAt());
         res.setUpdatedAt(d.getUpdatedAt());
         res.setCreatedBy(d.getCreatedBy());

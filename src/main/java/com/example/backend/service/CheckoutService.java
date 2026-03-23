@@ -34,10 +34,15 @@ public class CheckoutService {
 
     private final CheckoutRepository checkoutRepository;
     private final AssetUsageRepository assetUsageRepository;
+    private final UserService userService;
 
-    public CheckoutService(CheckoutRepository checkoutRepository, AssetUsageRepository assetUsageRepository) {
+    public CheckoutService(
+            CheckoutRepository checkoutRepository,
+            AssetUsageRepository assetUsageRepository,
+            UserService userService) {
         this.checkoutRepository = checkoutRepository;
         this.assetUsageRepository = assetUsageRepository;
+        this.userService = userService;
     }
 
     @Transactional
@@ -64,6 +69,25 @@ public class CheckoutService {
         assetUsageRepository.save(usage);
 
         return convertToResCreateCheckoutDTO(saved);
+    }
+
+    @Transactional
+    public ResCreateCheckoutDTO createCheckoutForCurrentUser(
+            @NonNull Long assetUsageId,
+            java.time.Instant receiveTime,
+            String conditionNote,
+            @NonNull String email) {
+        var user = userService.handleGetUserByUsername(email);
+        AssetUsage usage = assetUsageRepository.findById(assetUsageId)
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy đăng ký sử dụng ID = " + assetUsageId));
+        if (usage.getUser() == null || !usage.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("Không có quyền tạo biên bản nhận cho đăng ký này");
+        }
+        ReqCreateCheckoutDTO req = new ReqCreateCheckoutDTO();
+        req.setAssetUsageId(assetUsageId);
+        req.setReceiveTime(receiveTime);
+        req.setConditionNote(conditionNote);
+        return createCheckout(req);
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +119,18 @@ public class CheckoutService {
     @Transactional(readOnly = true)
     public ResCheckoutDetailDTO getCheckoutDetailById(@NonNull Long id) throws IdInvalidException {
         return convertToResCheckoutDetailDTO(getCheckoutById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public ResCheckoutDetailDTO getCheckoutDetailByAssetUsageIdForCurrentUser(@NonNull Long assetUsageId, @NonNull String email)
+            throws IdInvalidException {
+        Checkout checkout = checkoutRepository.findByAssetUsageId(assetUsageId)
+                .orElseThrow(() -> new IdInvalidException("Đăng ký phòng này chưa có biên bản nhận tài sản"));
+        AssetUsage usage = checkout.getAssetUsage();
+        if (usage == null || usage.getUser() == null || !usage.getUser().getEmail().equals(email)) {
+            throw new BadRequestException("Không có quyền xem biên bản nhận tài sản này");
+        }
+        return convertToResCheckoutDetailDTO(checkout);
     }
 
     @Transactional

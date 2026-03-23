@@ -73,6 +73,7 @@ public class AssetService {
     public ResUpdateAssetDTO updateAsset(@NonNull Long id, ReqUpdateAssetDTO req) throws IdInvalidException {
         Asset asset = getAssetById(id);
         asset.setAssetName(req.getAssetName());
+        asset.setResponsibleName(req.getResponsibleName());
         asset.setLocation(req.getLocation());
         asset.setCapacity(req.getCapacity());
         asset.setAssetsUrl(req.getAssetsUrl());
@@ -91,6 +92,7 @@ public class AssetService {
     public Asset convertToEntityOnCreate(@NonNull ReqCreateAssetDTO req) {
         Asset a = new Asset();
         a.setAssetName(req.getAssetName());
+        a.setResponsibleName(req.getResponsibleName());
         a.setLocation(req.getLocation());
         a.setCapacity(req.getCapacity());
         a.setAssetsUrl(req.getAssetsUrl());
@@ -102,6 +104,7 @@ public class AssetService {
         ResCreateAssetDTO res = new ResCreateAssetDTO();
         res.setId(a.getId());
         res.setAssetName(a.getAssetName());
+        res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
         res.setAssetsUrl(a.getAssetsUrl());
@@ -114,6 +117,7 @@ public class AssetService {
         ResUpdateAssetDTO res = new ResUpdateAssetDTO();
         res.setId(a.getId());
         res.setAssetName(a.getAssetName());
+        res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
         res.setAssetsUrl(a.getAssetsUrl());
@@ -127,6 +131,7 @@ public class AssetService {
         ResAssetListDTO res = new ResAssetListDTO();
         res.setId(a.getId());
         res.setAssetName(a.getAssetName());
+        res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
         res.setAssetsUrl(a.getAssetsUrl());
@@ -142,6 +147,7 @@ public class AssetService {
         ResAssetDetailDTO res = new ResAssetDetailDTO();
         res.setId(a.getId());
         res.setAssetName(a.getAssetName());
+        res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
         res.setAssetsUrl(a.getAssetsUrl());

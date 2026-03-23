@@ -16,6 +16,7 @@ public class ResCreateAssetDTO {
 
     private Long id; // id bản ghi mới
     private String assetName;
+    private String responsibleName;
     private String location;
     private Long capacity;
     private String assetsUrl;

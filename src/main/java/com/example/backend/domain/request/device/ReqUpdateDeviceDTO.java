@@ -30,4 +30,7 @@ public class ReqUpdateDeviceDTO {
 
     @NotNull(message = "Loại thiết bị không được để trống")
     private DeviceType deviceType;
+
+    /** Tên file ảnh minh họa thiết bị (tùy chọn). */
+    private String imageUrl;
 }

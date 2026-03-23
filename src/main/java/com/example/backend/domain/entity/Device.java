@@ -62,6 +62,9 @@ public class Device {
     @Column(nullable = false, length = 32)
     private DeviceType deviceType;
 
+    /** Tên file ảnh minh họa thiết bị (vd: ball.jpg) dùng để render thumbnail / in biên bản. */
+    private String imageUrl;
+
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

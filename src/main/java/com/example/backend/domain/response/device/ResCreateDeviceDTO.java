@@ -20,5 +20,7 @@ public class ResCreateDeviceDTO {
     private Integer quantity;
     private DeviceStatus status;
     private DeviceType deviceType;
+    /** Tên file ảnh minh họa thiết bị (tùy chọn). */
+    private String imageUrl;
     private Instant createdAt;
 }

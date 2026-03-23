@@ -106,6 +106,8 @@ public class NotificationService {
 
     @Scheduled(fixedDelay = 25_000)
     public void sendSseKeepAlive() {
+        // Mục tiêu: ping SSE định kỳ, nhưng nếu client đã ngắt kết nối thì chỉ loại emitter đó.
+        // Nếu không nuốt exception, Spring sẽ log ERROR/WARN và đôi khi kéo theo GlobalException.
         emitters.forEach((email, userEmitters) -> {
             if (userEmitters == null || userEmitters.isEmpty()) {
                 return;
@@ -115,7 +117,8 @@ public class NotificationService {
             for (SseEmitter emitter : userEmitters) {
                 try {
                     emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
-                } catch (Exception e) {
+                } catch (Throwable t) {
+                    // Nuốt mọi lỗi khi SSE đã chết để tránh làm bể request/scheduled thread.
                     dead.add(emitter);
                 }
             }
@@ -155,7 +158,7 @@ public class NotificationService {
                 emitter.send(SseEmitter.event()
                         .name("notification")
                         .data(dto));
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 dead.add(emitter);
             }
         }

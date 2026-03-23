@@ -22,6 +22,7 @@ import com.example.backend.domain.response.deviceissue.ResDeviceIssueDetailDTO;
 import com.example.backend.domain.response.deviceissue.ResDeviceIssueListDTO;
 import com.example.backend.domain.response.deviceissue.ResUpdateDeviceIssueDTO;
 import com.example.backend.repository.AssetRepository;
+import com.example.backend.repository.AssetUsageRepository;
 import com.example.backend.repository.DeviceIssueRepository;
 import com.example.backend.repository.DeviceRepository;
 import com.example.backend.util.constant.deviceissue.IssueStatus;
@@ -37,14 +38,20 @@ public class DeviceIssueService {
     private final DeviceIssueRepository deviceIssueRepository;
     private final DeviceRepository deviceRepository;
     private final AssetRepository assetRepository;
+    private final AssetUsageRepository assetUsageRepository;
+    private final UserService userService;
 
     public DeviceIssueService(
             DeviceIssueRepository deviceIssueRepository,
             DeviceRepository deviceRepository,
-            AssetRepository assetRepository) {
+            AssetRepository assetRepository,
+            AssetUsageRepository assetUsageRepository,
+            UserService userService) {
         this.deviceIssueRepository = deviceIssueRepository;
         this.deviceRepository = deviceRepository;
         this.assetRepository = assetRepository;
+        this.assetUsageRepository = assetUsageRepository;
+        this.userService = userService;
     }
 
     @Transactional
@@ -62,6 +69,27 @@ public class DeviceIssueService {
 
         DeviceIssue saved = deviceIssueRepository.save(issue);
         return convertToResCreateDeviceIssueDTO(saved);
+    }
+
+    @Transactional
+    public ResCreateDeviceIssueDTO createDeviceIssueForCurrentUser(
+            @NonNull Long assetUsageId,
+            @NonNull Long deviceId,
+            @NonNull String description,
+            @NonNull String email) {
+        var user = userService.handleGetUserByUsername(email);
+        var usage = assetUsageRepository.findById(assetUsageId)
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy đăng ký phòng"));
+        if (usage.getUser() == null || !usage.getUser().getId().equals(user.getId())) {
+            throw new BadRequestException("Không có quyền báo sự cố cho đăng ký này");
+        }
+        Device device = loadDeviceAndAssertAsset(deviceId, usage.getAsset().getId());
+        ReqCreateDeviceIssueDTO req = new ReqCreateDeviceIssueDTO();
+        req.setDeviceId(device.getId());
+        req.setAssetId(usage.getAsset().getId());
+        req.setDescription(description);
+        req.setReportedBy(user.getEmail());
+        return createDeviceIssue(req);
     }
 
     @Transactional(readOnly = true)

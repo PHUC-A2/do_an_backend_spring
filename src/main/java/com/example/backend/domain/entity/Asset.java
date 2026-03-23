@@ -20,7 +20,8 @@ import lombok.Setter;
 
 /**
  * Entity tài sản (phòng, kho, địa điểm) — map bảng assets theo db.md.
- * Lưu ý: đặt chỗ sân bóng là {@code Booking} + {@code Pitch}; nghiệp vụ mượn/phòng tài sản sau này dùng tên miền riêng (vd. AssetUsage), không gộp vào Booking sân.
+ * Trên client, &quot;Phòng tin học&quot; dùng cùng bảng này: mỗi phòng = một bản ghi Asset (admin tạo tại Quản lý tài sản).
+ * Đặt sân bóng là {@code Booking} + {@code Pitch}; đăng ký dùng phòng/tài sản là {@link com.example.backend.domain.entity.AssetUsage}, không gộp vào Booking sân.
  */
 @Entity
 @Table(name = "assets")
@@ -38,6 +39,12 @@ public class Asset {
 
     @Column(nullable = false)
     private String assetName; // tên tài sản (map từ User.name)
+
+    /**
+     * Tên người phụ trách phòng (dùng để in biên bản nhận/trả phòng).
+     * Admin tự khai khi tạo asset (room).
+     */
+    private String responsibleName;
 
     private String location; // vị trí
 

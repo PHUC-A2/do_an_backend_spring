@@ -77,6 +77,41 @@ public class AssetUsage {
     @Column(nullable = false, length = 1000)
     private String subject;
 
+    /** SĐT liên hệ của user client (dùng để in biên bản nhận/trả). */
+    @Column(length = 32)
+    private String contactPhone;
+
+    /** Ghi chú booking (ví dụ: Sinh viên lớp K63...). */
+    @Column(length = 1000)
+    private String bookingNote;
+
+    /**
+     * JSON lưu danh sách thiết bị user chọn mượn kèm booking.
+     * Shape: [{deviceId, deviceName, deviceType, quantity, deviceNote?}, ...]
+     */
+    @Column(columnDefinition = "TEXT")
+    private String borrowDevicesJson;
+
+    /** Ghi chú chung tình trạng thiết bị khi mượn/nhận phòng. */
+    @Column(length = 1000)
+    private String borrowNote;
+
+    /** Xác nhận đã kiểm tra tình trạng thiết bị trước khi gửi yêu cầu nhận/mượn. */
+    @Column(nullable = false)
+    private boolean borrowConditionAcknowledged = false;
+
+    /** Tùy chọn in/lưu biên bản nhận phòng. */
+    @Column(nullable = false)
+    private boolean borrowReportPrintOptIn = false;
+
+    /**
+     * Xóa khỏi lịch sử của user (soft delete).
+     * - Client: ẩn booking khỏi danh sách lịch sử của chính user.
+     * - Admin: vẫn thấy booking (vì không xóa khỏi DB).
+     */
+    @Column(nullable = false)
+    private boolean deletedByUser = false;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private AssetUsageStatus status = AssetUsageStatus.PENDING;

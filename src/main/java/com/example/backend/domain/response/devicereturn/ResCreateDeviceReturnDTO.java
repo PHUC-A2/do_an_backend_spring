@@ -17,5 +17,21 @@ public class ResCreateDeviceReturnDTO {
     private Long checkoutId;
     private Instant returnTime;
     private DeviceCondition deviceStatus;
+
+    private Integer quantityReturnedGood;
+    private Integer quantityLost;
+    private Integer quantityDamaged;
+
+    private String borrowerSignName;
+    private String staffSignName;
+
+    private String returnerNameSnapshot;
+    private String returnerPhoneSnapshot;
+    private String receiverNameSnapshot;
+    private String receiverPhoneSnapshot;
+
+    private String returnConditionNote;
+    private Boolean returnReportPrintOptIn;
+
     private Instant createdAt;
 }

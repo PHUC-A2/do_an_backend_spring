@@ -16,6 +16,9 @@ public class ReqUpdateAssetDTO {
     @NotBlank(message = "Tên tài sản không được để trống")
     private String assetName; // đổi tên tài sản
 
+    /** Tên người phụ trách phòng/tài sản (tùy chọn). */
+    private String responsibleName;
+
     private String location; // đổi vị trí
 
     private Long capacity; // đổi sức chứa

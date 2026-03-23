@@ -63,6 +63,52 @@ public class DeviceReturn {
     @Column(name = "device_status", nullable = false, length = 32)
     private DeviceCondition deviceStatus;
 
+    // ====== Các field dùng để lập biên bản trả (mirroring booking sân) ======
+
+    /** Trả tốt (tổng) — phụ thuộc vào borrowDevicesJson (phần FE gửi). */
+    @Column(name = "quantity_returned_good")
+    private Integer quantityReturnedGood = 0;
+
+    /** Mất (tổng) — nếu > 0 thì bắt buộc ký xác nhận. */
+    @Column(name = "quantity_lost")
+    private Integer quantityLost = 0;
+
+    /** Hỏng (tổng) — nếu > 0 thì bắt buộc ký xác nhận. */
+    @Column(name = "quantity_damaged")
+    private Integer quantityDamaged = 0;
+
+    /** Họ tên người mượn ký xác nhận khi có mất/hỏng. */
+    @Column(name = "borrower_sign_name", length = 256)
+    private String borrowerSignName;
+
+    /** Họ tên nhân viên / bên giao nhận ký xác nhận khi có mất/hỏng. */
+    @Column(name = "staff_sign_name", length = 256)
+    private String staffSignName;
+
+    /** Snapshot tên người trả (ưu tiên input tại thời điểm trả, fallback user). */
+    @Column(name = "returner_name_snapshot", length = 256)
+    private String returnerNameSnapshot;
+
+    /** Snapshot SĐT người trả (ưu tiên input tại thời điểm trả, fallback contactPhone). */
+    @Column(name = "returner_phone_snapshot", length = 64)
+    private String returnerPhoneSnapshot;
+
+    /** Snapshot tên người nhận thiết bị tại sân. */
+    @Column(name = "receiver_name_snapshot", length = 256)
+    private String receiverNameSnapshot;
+
+    /** Snapshot SĐT người nhận thiết bị tại sân. */
+    @Column(name = "receiver_phone_snapshot", length = 64)
+    private String receiverPhoneSnapshot;
+
+    /** Ghi chú biên bản khi trả (tương tự booking sân). */
+    @Column(name = "return_condition_note", length = 2000)
+    private String returnConditionNote;
+
+    /** Tùy chọn in/lưu biên bản trả phòng (để admin có thể tra cứu). */
+    @Column(name = "return_report_print_opt_in", nullable = false)
+    private boolean returnReportPrintOptIn = false;
+
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

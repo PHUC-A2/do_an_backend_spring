@@ -16,6 +16,7 @@ public class ResUpdateAssetDTO {
 
     private Long id;
     private String assetName;
+    private String responsibleName;
     private String location;
     private Long capacity;
     private String assetsUrl;

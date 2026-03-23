@@ -20,6 +20,8 @@ public class ResUpdateDeviceDTO {
     private Integer quantity;
     private DeviceStatus status;
     private DeviceType deviceType;
+    /** Tên file ảnh minh họa thiết bị (tùy chọn). */
+    private String imageUrl;
     private Instant updatedAt;
     private String updatedBy;
 }

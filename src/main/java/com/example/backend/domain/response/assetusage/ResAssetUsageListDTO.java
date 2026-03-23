@@ -27,7 +27,19 @@ public class ResAssetUsageListDTO {
     private LocalTime startTime;
     private LocalTime endTime;
     private String subject;
+    private String contactPhone;
+    private String bookingNote;
+    private String borrowDevicesJson;
+    private String borrowNote;
+    private Boolean borrowConditionAcknowledged;
+    private Boolean borrowReportPrintOptIn;
     private AssetUsageStatus status;
+
+    /** Tên người phụ trách phòng (lấy từ Asset.responsibleName). */
+    private String assetResponsibleName;
+
+    /** Ảnh minh họa phòng/tài sản. */
+    private String assetAssetsUrl;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;
