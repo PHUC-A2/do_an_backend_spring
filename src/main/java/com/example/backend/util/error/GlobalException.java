@@ -1,9 +1,11 @@
 package com.example.backend.util.error;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,6 +18,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 import com.example.backend.domain.response.common.RestResponse;
 
@@ -54,7 +58,7 @@ public class GlobalException {
         RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.NOT_FOUND.value());
         res.setError("Không tìm thấy");
-        res.setMessage("API hoặc tài nguyên yêu cầu không tồn tại"); // có thể custom
+        res.setMessage("API hoặc tài nguyên yêu cầu không tồn tại");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(res);
     }
 
@@ -110,7 +114,7 @@ public class GlobalException {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(res);
     }
 
-    // 403 - Forbidden (Method Security: @PreAuthorize, @HasPermission)
+    // 403 - Cấm truy cập (Method Security: @PreAuthorize, @HasPermission)
     @ExceptionHandler({
             AuthorizationDeniedException.class,
             AccessDeniedException.class
@@ -126,16 +130,27 @@ public class GlobalException {
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<RestResponse<Object>> handleAllExceptions(Exception ex) {
+    public ResponseEntity<RestResponse<Object>> handleAllExceptions(Exception ex,
+            HttpServletRequest request) {
+        // Kết nối SSE có thể bị đóng bởi client bất kỳ lúc nào;
+        // IOException này không phải lỗi ứng dụng — bỏ qua, không trả về gì.
+        String accept = request.getHeader("Accept");
+        if (accept != null && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE)) {
+            return ResponseEntity.status(HttpStatus.OK).build();
+        }
+        if (ex instanceof IOException && ex.getMessage() != null
+                && ex.getMessage().contains("connection was aborted")) {
+            return ResponseEntity.status(HttpStatus.OK).build();
+        }
         RestResponse<Object> res = new RestResponse<>();
         res.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR.value());
         res.setError("Lỗi hệ thống");
         res.setMessage("Đã xảy ra lỗi không xác định, vui lòng thử lại sau");
-        ex.printStackTrace(); // log stack trace cho dev
+        ex.printStackTrace();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(res);
     }
 
-    // login
+    // Đăng nhập
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<RestResponse<Object>> handleBadCredentials(BadCredentialsException ex) {
         RestResponse<Object> res = new RestResponse<>();
@@ -145,7 +160,7 @@ public class GlobalException {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(res);
     }
 
-    // BadRequestException
+    // Yêu cầu không hợp lệ
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<RestResponse<Object>> handleBadRequest(BadRequestException ex) {
         RestResponse<Object> res = new RestResponse<>();

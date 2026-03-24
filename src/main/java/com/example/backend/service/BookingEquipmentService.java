@@ -375,6 +375,20 @@ public class BookingEquipmentService {
         be.setReturnAdminConfirmedAt(Instant.now());
         be.setReturnAdminConfirmedBy(SecurityUtil.getCurrentUserLogin().orElse(""));
         bookingEquipmentRepository.save(be);
+
+        // Sau khi admin xác nhận biên bản trả, gửi thông báo cho khách của booking.
+        String statusVi = mapStatusToVietnamese(be.getStatus());
+        String clientMsg = String.format(
+                "Biên bản trả thiết bị %s (%dx) của Booking #%d đã được admin xác nhận (%s).",
+                be.getEquipment().getName(),
+                be.getQuantity(),
+                be.getBooking().getId(),
+                statusVi);
+        notificationService.createAndPush(
+                be.getBooking().getUser(),
+                mapStatusToNotificationType(be.getStatus()),
+                clientMsg);
+
         return convertToResDTO(be);
     }
 
