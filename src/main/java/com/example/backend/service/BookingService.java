@@ -42,7 +42,6 @@ public class BookingService {
     private final NotificationService notificationService;
 
     private static final List<BookingStatusEnum> OCCUPYING_STATUSES = List.of(
-            BookingStatusEnum.PENDING,
             BookingStatusEnum.ACTIVE,
             BookingStatusEnum.PAID);
 
@@ -581,8 +580,36 @@ public class BookingService {
             throw new BadRequestException("Booking đã bị hủy, không thể xác nhận");
         }
 
+        // Khi nới lỏng tạo booking PENDING, đến bước duyệt cần khóa cứng theo ACTIVE/PAID
+        // để tránh 2 booking cùng được duyệt trên cùng khung giờ.
+        boolean occupiedByApprovedBooking = bookingRepository
+                .existsByPitchIdAndStatusInAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNot(
+                        booking.getPitch().getId(),
+                        List.of(BookingStatusEnum.ACTIVE, BookingStatusEnum.PAID),
+                        booking.getEndDateTime(),
+                        booking.getStartDateTime(),
+                        booking.getId());
+        if (occupiedByApprovedBooking) {
+            throw new BadRequestException("Khung giờ này đã có booking được duyệt trước đó");
+        }
+
         booking.setStatus(BookingStatusEnum.ACTIVE);
         bookingRepository.save(booking);
+
+        // Tự động từ chối các booking PENDING trùng khung giờ sau khi đã duyệt booking hiện tại.
+        List<Booking> overlappingPending = bookingRepository
+                .findByPitchIdAndStatusAndStartDateTimeLessThanAndEndDateTimeGreaterThanAndIdNotOrderByStartDateTimeAsc(
+                        booking.getPitch().getId(),
+                        BookingStatusEnum.PENDING,
+                        booking.getEndDateTime(),
+                        booking.getStartDateTime(),
+                        booking.getId());
+        for (Booking pending : overlappingPending) {
+            pending.setStatus(BookingStatusEnum.CANCELLED);
+        }
+        if (!overlappingPending.isEmpty()) {
+            bookingRepository.saveAll(overlappingPending);
+        }
 
         String pitchName = booking.getPitch() != null ? booking.getPitch().getName() : "sân";
         String msg = String.format("Booking #%d – %s lúc %s đã được admin xác nhận.",
@@ -590,6 +617,17 @@ public class BookingService {
                 pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
         notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_APPROVED, msg);
+
+        // Thông báo rõ lý do cho các user bị từ chối do trùng giờ với booking vừa được duyệt.
+        for (Booking pending : overlappingPending) {
+            String rejectMsg = String.format(
+                    "Booking #%d – %s lúc %s đã bị từ chối vì khung giờ đã được admin duyệt cho booking khác (Booking #%d).",
+                    pending.getId(),
+                    pitchName,
+                    pending.getStartDateTime().toString().replace("T", " ").substring(0, 16),
+                    booking.getId());
+            notificationService.createAndPush(pending.getUser(), NotificationTypeEnum.BOOKING_REJECTED, rejectMsg);
+        }
     }
 
     @Transactional

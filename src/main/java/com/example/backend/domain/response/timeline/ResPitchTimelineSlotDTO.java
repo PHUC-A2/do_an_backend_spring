@@ -14,6 +14,6 @@ import lombok.NoArgsConstructor;
 public class ResPitchTimelineSlotDTO {
     private LocalDateTime start;
     private LocalDateTime end;
-    /** PAST | FREE | BUSY */
+    /** PAST | FREE | PENDING | BOOKED | BOOKED_BY_OTHER */
     private SlotStatus status;
 }

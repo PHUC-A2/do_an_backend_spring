@@ -9,12 +9,14 @@ import java.util.List;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
+import com.example.backend.domain.entity.Booking;
 import com.example.backend.domain.entity.Pitch;
 import com.example.backend.domain.response.timeline.BookingTimeRange;
 import com.example.backend.domain.response.timeline.ResPitchTimelineDTO;
 import com.example.backend.domain.response.timeline.ResPitchTimelineSlotDTO;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.repository.PitchRepository;
+import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.booking.SlotStatus;
 import com.example.backend.util.error.BadRequestException;
@@ -24,12 +26,15 @@ public class PublicPitchBookingService {
 
         private final BookingRepository bookingRepository;
         private final PitchRepository pitchRepository;
+        private final UserService userService;
 
         public PublicPitchBookingService(
                         BookingRepository bookingRepository,
-                        PitchRepository pitchRepository) {
+                        PitchRepository pitchRepository,
+                        UserService userService) {
                 this.bookingRepository = bookingRepository;
                 this.pitchRepository = pitchRepository;
+                this.userService = userService;
         }
 
         // ===== ENTRY POINT DUY NHẤT =====
@@ -61,7 +66,7 @@ public class PublicPitchBookingService {
         }
 
         // ===== INTERNAL =====
-        private List<BookingTimeRange> getBookingRanges(
+        private List<Booking> getBookingsForTimeline(
                         Long pitchId,
                         LocalDate date) {
 
@@ -79,12 +84,7 @@ public class PublicPitchBookingService {
                                                 pitchId,
                                                 occupyingStatuses,
                                                 endOfDay,
-                                                startOfDay)
-                                .stream()
-                                .map(b -> new BookingTimeRange(
-                                                b.getStartDateTime(),
-                                                b.getEndDateTime()))
-                                .toList();
+                                                startOfDay);
         }
 
         private List<ResPitchTimelineSlotDTO> buildTimelineSlots(
@@ -94,7 +94,11 @@ public class PublicPitchBookingService {
                         LocalTime openTime,
                         LocalTime closeTime) {
 
-                List<BookingTimeRange> bookings = getBookingRanges(pitchId, date);
+                List<Booking> bookings = getBookingsForTimeline(pitchId, date);
+                Long currentUserId = SecurityUtil.getCurrentUserLogin()
+                                .map(userService::handleGetUserByUsername)
+                                .map(u -> u != null ? u.getId() : null)
+                                .orElse(null);
 
                 List<ResPitchTimelineSlotDTO> slots = new ArrayList<>();
 
@@ -111,9 +115,34 @@ public class PublicPitchBookingService {
                         if (!slotEnd.isAfter(now)) {
                                 slotStatus = SlotStatus.PAST;
                         } else {
-                                boolean isBusy = bookings.stream().anyMatch(b -> slotStart.isBefore(b.getEnd()) &&
-                                                slotEnd.isAfter(b.getStart()));
-                                slotStatus = isBusy ? SlotStatus.BUSY : SlotStatus.FREE;
+                                boolean hasApproved = bookings.stream()
+                                                .anyMatch(b -> isOverlap(slotStart, slotEnd, b)
+                                                                && (b.getStatus() == BookingStatusEnum.ACTIVE
+                                                                                || b.getStatus() == BookingStatusEnum.PAID));
+                                boolean hasPending = bookings.stream()
+                                                .anyMatch(b -> isOverlap(slotStart, slotEnd, b)
+                                                                && b.getStatus() == BookingStatusEnum.PENDING);
+                                boolean minePending = currentUserId != null && bookings.stream()
+                                                .anyMatch(b -> isOverlap(slotStart, slotEnd, b)
+                                                                && b.getStatus() == BookingStatusEnum.PENDING
+                                                                && b.getUser() != null
+                                                                && currentUserId.equals(b.getUser().getId()));
+                                boolean mineApproved = currentUserId != null && bookings.stream()
+                                                .anyMatch(b -> isOverlap(slotStart, slotEnd, b)
+                                                                && (b.getStatus() == BookingStatusEnum.ACTIVE
+                                                                                || b.getStatus() == BookingStatusEnum.PAID)
+                                                                && b.getUser() != null
+                                                                && currentUserId.equals(b.getUser().getId()));
+
+                                if (hasApproved) {
+                                        slotStatus = minePending && !mineApproved
+                                                        ? SlotStatus.BOOKED_BY_OTHER
+                                                        : SlotStatus.BOOKED;
+                                } else if (hasPending) {
+                                        slotStatus = SlotStatus.PENDING;
+                                } else {
+                                        slotStatus = SlotStatus.FREE;
+                                }
                         }
 
                         slots.add(new ResPitchTimelineSlotDTO(
@@ -125,5 +154,10 @@ public class PublicPitchBookingService {
                 }
 
                 return slots;
+        }
+
+        private boolean isOverlap(LocalDateTime slotStart, LocalDateTime slotEnd, Booking booking) {
+                BookingTimeRange range = new BookingTimeRange(booking.getStartDateTime(), booking.getEndDateTime());
+                return slotStart.isBefore(range.getEnd()) && slotEnd.isAfter(range.getStart());
         }
 }
