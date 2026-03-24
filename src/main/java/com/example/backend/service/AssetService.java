@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -19,6 +20,7 @@ import com.example.backend.domain.response.asset.ResCreateAssetDTO;
 import com.example.backend.domain.response.asset.ResUpdateAssetDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.repository.AssetRepository;
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
 import com.example.backend.util.error.IdInvalidException;
 
 /**
@@ -33,8 +35,26 @@ public class AssetService {
         this.assetRepository = assetRepository;
     }
 
+    /** Bản ghi cũ hoặc request thiếu field — coi như miễn phí. */
+    private static AssetRoomFeeMode nvlRoomFee(AssetRoomFeeMode v) {
+        return v != null ? v : AssetRoomFeeMode.FREE;
+    }
+
+    private static void validateBookingWindow(boolean open24h, LocalTime openTime, LocalTime closeTime) {
+        if (open24h) {
+            return;
+        }
+        if (openTime == null || closeTime == null) {
+            throw new com.example.backend.util.error.BadRequestException("Vui lòng cấu hình giờ mở/đóng khi không mở 24h");
+        }
+        if (!openTime.isBefore(closeTime)) {
+            throw new com.example.backend.util.error.BadRequestException("Giờ mở phải nhỏ hơn giờ đóng");
+        }
+    }
+
     /** Tạo mới bản ghi tài sản */
     public ResCreateAssetDTO createAsset(@NonNull ReqCreateAssetDTO req) {
+        validateBookingWindow(req.isOpen24h(), req.getOpenTime(), req.getCloseTime());
         Asset asset = convertToEntityOnCreate(req);
         Asset saved = assetRepository.save(asset);
         return convertToResCreateAssetDTO(saved);
@@ -71,11 +91,16 @@ public class AssetService {
 
     /** Cập nhật theo id — gán trực tiếp từ DTO giống PitchService.updatePitch */
     public ResUpdateAssetDTO updateAsset(@NonNull Long id, ReqUpdateAssetDTO req) throws IdInvalidException {
+        validateBookingWindow(req.isOpen24h(), req.getOpenTime(), req.getCloseTime());
         Asset asset = getAssetById(id);
         asset.setAssetName(req.getAssetName());
         asset.setResponsibleName(req.getResponsibleName());
         asset.setLocation(req.getLocation());
         asset.setCapacity(req.getCapacity());
+        asset.setOpen24h(req.isOpen24h());
+        asset.setOpenTime(req.isOpen24h() ? null : req.getOpenTime());
+        asset.setCloseTime(req.isOpen24h() ? null : req.getCloseTime());
+        asset.setRoomFeeMode(nvlRoomFee(req.getRoomFeeMode() != null ? req.getRoomFeeMode() : asset.getRoomFeeMode()));
         asset.setAssetsUrl(req.getAssetsUrl());
         Asset updated = assetRepository.save(asset);
         return convertToResUpdateAssetDTO(updated);
@@ -95,6 +120,10 @@ public class AssetService {
         a.setResponsibleName(req.getResponsibleName());
         a.setLocation(req.getLocation());
         a.setCapacity(req.getCapacity());
+        a.setOpen24h(req.isOpen24h());
+        a.setOpenTime(req.isOpen24h() ? null : req.getOpenTime());
+        a.setCloseTime(req.isOpen24h() ? null : req.getCloseTime());
+        a.setRoomFeeMode(nvlRoomFee(req.getRoomFeeMode()));
         a.setAssetsUrl(req.getAssetsUrl());
         return a;
     }
@@ -107,6 +136,10 @@ public class AssetService {
         res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
+        res.setOpenTime(a.getOpenTime());
+        res.setCloseTime(a.getCloseTime());
+        res.setOpen24h(a.isOpen24h());
+        res.setRoomFeeMode(nvlRoomFee(a.getRoomFeeMode()));
         res.setAssetsUrl(a.getAssetsUrl());
         res.setCreatedAt(a.getCreatedAt());
         return res;
@@ -120,6 +153,10 @@ public class AssetService {
         res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
+        res.setOpenTime(a.getOpenTime());
+        res.setCloseTime(a.getCloseTime());
+        res.setOpen24h(a.isOpen24h());
+        res.setRoomFeeMode(nvlRoomFee(a.getRoomFeeMode()));
         res.setAssetsUrl(a.getAssetsUrl());
         res.setUpdatedAt(a.getUpdatedAt());
         res.setUpdatedBy(a.getUpdatedBy());
@@ -134,6 +171,10 @@ public class AssetService {
         res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
+        res.setOpenTime(a.getOpenTime());
+        res.setCloseTime(a.getCloseTime());
+        res.setOpen24h(a.isOpen24h());
+        res.setRoomFeeMode(nvlRoomFee(a.getRoomFeeMode()));
         res.setAssetsUrl(a.getAssetsUrl());
         res.setCreatedAt(a.getCreatedAt());
         res.setUpdatedAt(a.getUpdatedAt());
@@ -150,6 +191,10 @@ public class AssetService {
         res.setResponsibleName(a.getResponsibleName());
         res.setLocation(a.getLocation());
         res.setCapacity(a.getCapacity());
+        res.setOpenTime(a.getOpenTime());
+        res.setCloseTime(a.getCloseTime());
+        res.setOpen24h(a.isOpen24h());
+        res.setRoomFeeMode(nvlRoomFee(a.getRoomFeeMode()));
         res.setAssetsUrl(a.getAssetsUrl());
         res.setCreatedAt(a.getCreatedAt());
         res.setUpdatedAt(a.getUpdatedAt());

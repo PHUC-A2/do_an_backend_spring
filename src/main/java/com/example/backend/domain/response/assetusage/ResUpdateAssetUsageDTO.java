@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
 import com.example.backend.util.constant.assetusage.AssetUsageStatus;
 import com.example.backend.util.constant.assetusage.AssetUsageType;
 
@@ -20,6 +21,7 @@ public class ResUpdateAssetUsageDTO {
     private Long userId;
     private Long assetId;
     private AssetUsageType usageType;
+    private AssetRoomFeeMode usageFeeMode;
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;

@@ -1,5 +1,9 @@
 package com.example.backend.domain.request.asset;
 
+import java.time.LocalTime;
+
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -22,6 +26,13 @@ public class ReqUpdateAssetDTO {
     private String location; // đổi vị trí
 
     private Long capacity; // đổi sức chứa
+
+    private LocalTime openTime;
+    private LocalTime closeTime;
+    private boolean open24h;
+
+    /** Miễn phí / có phí — null thì giữ nguyên hoặc FREE khi tạo lần đầu (update luôn gửi từ admin form). */
+    private AssetRoomFeeMode roomFeeMode;
 
     private String assetsUrl; // ảnh tài sản (tùy chọn)
 }

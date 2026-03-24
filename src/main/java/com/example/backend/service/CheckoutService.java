@@ -35,14 +35,17 @@ public class CheckoutService {
     private final CheckoutRepository checkoutRepository;
     private final AssetUsageRepository assetUsageRepository;
     private final UserService userService;
+    private final RoomBookingDeviceService roomBookingDeviceService;
 
     public CheckoutService(
             CheckoutRepository checkoutRepository,
             AssetUsageRepository assetUsageRepository,
-            UserService userService) {
+            UserService userService,
+            RoomBookingDeviceService roomBookingDeviceService) {
         this.checkoutRepository = checkoutRepository;
         this.assetUsageRepository = assetUsageRepository;
         this.userService = userService;
+        this.roomBookingDeviceService = roomBookingDeviceService;
     }
 
     @Transactional
@@ -67,6 +70,10 @@ public class CheckoutService {
 
         usage.setStatus(AssetUsageStatus.IN_PROGRESS);
         assetUsageRepository.save(usage);
+
+        // Clone flow booking sân: khi đã nhận phòng (checkout tạo xong), tạo dòng mượn theo booking phòng
+        // để admin có thể quản lý mượn/trả theo từng thiết bị và thống kê theo thiết bị/phòng.
+        roomBookingDeviceService.createBorrowLinesForAssetUsageIfNeeded(usage);
 
         return convertToResCreateCheckoutDTO(saved);
     }

@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.backend.domain.entity.AssetUsage;
 import com.example.backend.domain.entity.Checkout;
 import com.example.backend.domain.entity.DeviceReturn;
+import com.example.backend.domain.entity.RoomBookingDevice;
 import com.example.backend.domain.entity.User;
+import com.example.backend.domain.request.bookingequipment.ReqUpdateBookingEquipmentStatusDTO;
 import com.example.backend.domain.request.assetusage.ReqCreateClientReturnDTO;
 import com.example.backend.domain.request.devicereturn.ReqCreateDeviceReturnDTO;
 import com.example.backend.domain.request.devicereturn.ReqUpdateDeviceReturnDTO;
@@ -28,6 +30,7 @@ import com.example.backend.domain.response.devicereturn.ResUpdateDeviceReturnDTO
 import com.example.backend.repository.AssetUsageRepository;
 import com.example.backend.repository.CheckoutRepository;
 import com.example.backend.repository.DeviceReturnRepository;
+import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 import com.example.backend.util.constant.assetusage.AssetUsageStatus;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
@@ -42,6 +45,7 @@ public class DeviceReturnService {
     private final CheckoutRepository checkoutRepository;
     private final AssetUsageRepository assetUsageRepository;
     private final UserService userService;
+    private final RoomBookingDeviceService roomBookingDeviceService;
 
     /** ObjectMapper dùng cho parsing borrowDevicesJson. */
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -50,11 +54,13 @@ public class DeviceReturnService {
             DeviceReturnRepository deviceReturnRepository,
             CheckoutRepository checkoutRepository,
             AssetUsageRepository assetUsageRepository,
-            UserService userService) {
+            UserService userService,
+            RoomBookingDeviceService roomBookingDeviceService) {
         this.deviceReturnRepository = deviceReturnRepository;
         this.checkoutRepository = checkoutRepository;
         this.assetUsageRepository = assetUsageRepository;
         this.userService = userService;
+        this.roomBookingDeviceService = roomBookingDeviceService;
     }
 
     @Transactional
@@ -101,27 +107,9 @@ public class DeviceReturnService {
                     String.format("Tổng trả tốt + mất + hỏng (%d) phải bằng tổng mượn (%d).", g + l + d, qTotal));
         }
 
-        // Validate theo deviceStatus (mirroring logic ở booking sân).
-        if (req.getDeviceStatus() == com.example.backend.util.constant.devicereturn.DeviceCondition.GOOD) {
-            if (l != 0 || d != 0 || g != qTotal) {
-                throw new BadRequestException("Tình trạng Bình thường phải có trả tốt đúng tổng, không có mất/hỏng");
-            }
-        } else if (req.getDeviceStatus() == com.example.backend.util.constant.devicereturn.DeviceCondition.LOST) {
-            if (d != 0) {
-                throw new BadRequestException("Trạng thái Mất không được có hỏng");
-            }
-            if (l <= 0) {
-                throw new BadRequestException("Trạng thái Mất phải có số lượng mất > 0");
-            }
-        } else {
-            // DAMAGED / BROKEN
-            if (l != 0) {
-                throw new BadRequestException("Trạng thái Hỏng không được có mất");
-            }
-            if (d <= 0) {
-                throw new BadRequestException("Trạng thái Hỏng phải có số lượng hỏng > 0");
-            }
-        }
+        // Cho phép breakdown linh hoạt giống nghiệp vụ thực tế:
+        // ví dụ mượn 20 có thể trả 9 tốt + 10 hỏng + 1 mất.
+        // Chỉ cần ràng buộc tổng và số âm (đã validate ở trên).
 
         // Validate người ký xác nhận khi có mất / hỏng.
         boolean hasDrop = l + d > 0;
@@ -155,10 +143,23 @@ public class DeviceReturnService {
             returnerPhoneSnapshot = fallbackReturnerPhone;
         }
 
+        // Suy ra trạng thái tổng quát từ breakdown để dữ liệu nhất quán.
+        com.example.backend.util.constant.devicereturn.DeviceCondition derivedStatus;
+        if (l == 0 && d == 0) {
+            derivedStatus = com.example.backend.util.constant.devicereturn.DeviceCondition.GOOD;
+        } else if (l > 0 && d == 0 && g == 0) {
+            derivedStatus = com.example.backend.util.constant.devicereturn.DeviceCondition.LOST;
+        } else if (d > 0 && l == 0 && g == 0) {
+            derivedStatus = com.example.backend.util.constant.devicereturn.DeviceCondition.DAMAGED;
+        } else {
+            // Mixed case hoặc vừa hỏng/vừa mất => dùng BROKEN để biểu diễn tình trạng không bình thường tổng hợp.
+            derivedStatus = com.example.backend.util.constant.devicereturn.DeviceCondition.BROKEN;
+        }
+
         DeviceReturn r = new DeviceReturn();
         r.setCheckout(checkout);
         r.setReturnTime(req.getReturnTime() != null ? req.getReturnTime() : java.time.Instant.now());
-        r.setDeviceStatus(req.getDeviceStatus());
+        r.setDeviceStatus(derivedStatus);
 
         // Lưu breakdown + chữ ký/snapshot để in biên bản.
         r.setQuantityReturnedGood(g);
@@ -174,6 +175,64 @@ public class DeviceReturnService {
         r.setReturnReportPrintOptIn(req.getReturnReportPrintOptIn() != null ? req.getReturnReportPrintOptIn() : false);
 
         DeviceReturn saved = deviceReturnRepository.save(r);
+
+        // Clone flow booking sân: client tạo biên bản trả => đồng bộ trạng thái dòng mượn/trả theo từng thiết bị.
+        // Lý do: admin rooms cần tab quản lý mượn/trả + nhật ký + thống kê theo dòng giống booking sân.
+        roomBookingDeviceService.createBorrowLinesForAssetUsageIfNeeded(usage);
+        List<RoomBookingDevice> lines = roomBookingDeviceService.getLinesByAssetUsageId(usage.getId());
+        if (lines != null) {
+            int remainGood = g;
+            int remainLost = l;
+            int remainDamaged = d;
+            for (RoomBookingDevice line : lines) {
+                if (line == null) {
+                    // Bỏ qua dòng không hợp lệ để tránh crash (đảm bảo transaction).
+                    continue;
+                }
+
+                // Tạo payload cập nhật trạng thái theo preset rooms hiện tại (toàn bộ thiết bị cùng chung deviceStatus).
+                ReqUpdateBookingEquipmentStatusDTO perLine = new ReqUpdateBookingEquipmentStatusDTO();
+                perLine.setReturnConditionNote(trimToNull(req.getReturnConditionNote()));
+                perLine.setReturnerName(returnerNameSnapshot);
+                perLine.setReturnerPhone(returnerPhoneSnapshot);
+                perLine.setReceiverName(receiverNameSnapshot);
+                perLine.setReceiverPhone(receiverPhoneSnapshot);
+                perLine.setReturnReportPrintOptIn(req.getReturnReportPrintOptIn() != null ? req.getReturnReportPrintOptIn() : false);
+                perLine.setBorrowerSignName(hasDrop ? borrowerSignName : null);
+                perLine.setStaffSignName(hasDrop ? staffSignName : null);
+
+                int qLine = line.getQuantity() != null ? line.getQuantity() : 0;
+                int lineGood = Math.min(remainGood, qLine);
+                int left = qLine - lineGood;
+                int lineLost = Math.min(remainLost, left);
+                left -= lineLost;
+                int lineDamaged = Math.min(remainDamaged, left);
+                left -= lineDamaged;
+                // Safety: nếu còn dư do làm tròn/edge case, dồn về trả tốt để luôn khớp tổng dòng.
+                if (left > 0) {
+                    lineGood += left;
+                }
+
+                remainGood -= lineGood;
+                remainLost -= lineLost;
+                remainDamaged -= lineDamaged;
+
+                perLine.setStatus(BookingEquipmentStatusEnum.RETURNED);
+                perLine.setQuantityReturnedGood(lineGood);
+                perLine.setQuantityLost(lineLost);
+                perLine.setQuantityDamaged(lineDamaged);
+
+                // Chỉ cập nhật khi dòng đang BORROWED (đúng pattern booking sân).
+                if (line.getStatus() == BookingEquipmentStatusEnum.BORROWED) {
+                    try {
+                        roomBookingDeviceService.updateStatusByClient(line.getId(), perLine);
+                    } catch (IdInvalidException ex) {
+                        // Không để lộ checked-exception ra method hiện tại; convert về lỗi business dễ hiểu.
+                        throw new BadRequestException("Không tìm thấy dòng thiết bị mượn theo booking phòng");
+                    }
+                }
+            }
+        }
 
         usage.setStatus(AssetUsageStatus.COMPLETED);
         assetUsageRepository.save(usage);

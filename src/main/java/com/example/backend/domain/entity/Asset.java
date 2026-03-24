@@ -1,11 +1,16 @@
 package com.example.backend.domain.entity;
 
 import java.time.Instant;
+import java.time.LocalTime;
 
 import com.example.backend.util.SecurityUtil;
 
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -50,6 +55,19 @@ public class Asset {
 
     private Long capacity; // sức chứa
 
+    /** Khung giờ mở đặt phòng theo ngày (tương tự Pitch). */
+    private LocalTime openTime;
+    private LocalTime closeTime;
+    private boolean open24h = true;
+
+    /**
+     * Miễn phí hay có phí khi đăng ký dùng phòng — admin chọn lúc tạo/sửa tài sản; client chỉ hiển thị nhãn.
+     * Cột có thể null trên DB cũ — service map ra DTO luôn coi null = FREE.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "room_fee_mode", length = 16)
+    private AssetRoomFeeMode roomFeeMode = AssetRoomFeeMode.FREE;
+
     /** URL ảnh minh họa tài sản (upload qua FileController, cùng cách lưu avatar user) */
     @Column(columnDefinition = "MEDIUMTEXT")
     private String assetsUrl;
@@ -63,11 +81,25 @@ public class Asset {
     public void handleBeforeCreate() {
         this.createdBy = SecurityUtil.getCurrentUserLogin().orElse(""); // ghi nhận người tạo
         this.createdAt = Instant.now(); // mốc thời gian tạo
+        if (this.roomFeeMode == null) {
+            this.roomFeeMode = AssetRoomFeeMode.FREE;
+        }
+        if (this.open24h) {
+            this.openTime = null;
+            this.closeTime = null;
+        }
     }
 
     @PreUpdate
     public void handleBeforeUpdate() {
         this.updatedBy = SecurityUtil.getCurrentUserLogin().orElse(""); // ghi nhận người sửa
         this.updatedAt = Instant.now(); // mốc thời gian cập nhật
+        if (this.roomFeeMode == null) {
+            this.roomFeeMode = AssetRoomFeeMode.FREE;
+        }
+        if (this.open24h) {
+            this.openTime = null;
+            this.closeTime = null;
+        }
     }
 }

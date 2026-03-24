@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -106,28 +107,45 @@ public class NotificationService {
 
     @Scheduled(fixedDelay = 25_000)
     public void sendSseKeepAlive() {
-        // Mục tiêu: ping SSE định kỳ, nhưng nếu client đã ngắt kết nối thì chỉ loại emitter đó.
-        // Nếu không nuốt exception, Spring sẽ log ERROR/WARN và đôi khi kéo theo GlobalException.
-        emitters.forEach((email, userEmitters) -> {
-            if (userEmitters == null || userEmitters.isEmpty()) {
-                return;
-            }
+        // Ping SSE định kỳ; client đóng tab / refresh → kết nối gãy (IOException) là bình thường.
+        // Lặp trên snapshot map + list để tránh xung đột với cleanup/onError; không để exception thoát ra @Scheduled (tránh stack đầy console).
+        try {
+            for (var entry : new ArrayList<>(emitters.entrySet())) {
+                String email = entry.getKey();
+                List<SseEmitter> userEmitters = entry.getValue();
+                if (userEmitters == null || userEmitters.isEmpty()) {
+                    continue;
+                }
 
-            List<SseEmitter> dead = new ArrayList<>();
-            for (SseEmitter emitter : userEmitters) {
-                try {
-                    emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
-                } catch (Throwable t) {
-                    // Nuốt mọi lỗi khi SSE đã chết để tránh làm bể request/scheduled thread.
-                    dead.add(emitter);
+                List<SseEmitter> dead = new ArrayList<>();
+                for (SseEmitter emitter : new ArrayList<>(userEmitters)) {
+                    try {
+                        emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
+                    } catch (IOException e) {
+                        // Client đã ngắt (Windows: connection aborted by host) — chỉ dọn emitter.
+                        dead.add(emitter);
+                    } catch (IllegalStateException e) {
+                        // Emitter đã complete/timeout.
+                        dead.add(emitter);
+                    } catch (Throwable t) {
+                        dead.add(emitter);
+                    }
+                }
+
+                for (SseEmitter d : dead) {
+                    try {
+                        d.complete();
+                    } catch (Throwable ignored) {
+                    }
+                }
+                userEmitters.removeAll(dead);
+                if (userEmitters.isEmpty()) {
+                    emitters.remove(email, userEmitters);
                 }
             }
-
-            userEmitters.removeAll(dead);
-            if (userEmitters.isEmpty()) {
-                emitters.remove(email, userEmitters);
-            }
-        });
+        } catch (Throwable t) {
+            log.debug("[SSE] keep-alive batch skip: {}", t.toString());
+        }
     }
 
     // ──────────────────────────────────────────────────────────────

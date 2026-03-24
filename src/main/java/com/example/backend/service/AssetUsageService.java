@@ -1,10 +1,19 @@
 package com.example.backend.service;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +37,7 @@ import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.repository.AssetRepository;
 import com.example.backend.repository.AssetUsageRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
 import com.example.backend.util.constant.assetusage.AssetUsageStatus;
 import com.example.backend.util.constant.assetusage.AssetUsageType;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
@@ -44,6 +54,19 @@ public class AssetUsageService {
             AssetUsageStatus.PENDING,
             AssetUsageStatus.APPROVED,
             AssetUsageStatus.IN_PROGRESS);
+
+    /**
+     * Giới hạn số lượng mượn tối đa cho mỗi loại thiết bị trên một booking phòng (đồng bộ rule nghiệp vụ với FE).
+     */
+    private static final int MAX_BORROW_QUANTITY_PER_DEVICE_PER_BOOKING = 10;
+    private static final long MIN_ROOM_BOOKING_MINUTES = 30;
+
+    private static AssetRoomFeeMode nvlAssetRoomFee(AssetRoomFeeMode v) {
+        return v != null ? v : AssetRoomFeeMode.FREE;
+    }
+
+    /** ObjectMapper parse/validate JSON thiết bị mượn (borrowDevicesJson). */
+    private final ObjectMapper borrowDevicesJsonMapper = new ObjectMapper();
 
     private final AssetUsageRepository assetUsageRepository;
     private final UserRepository userRepository;
@@ -72,9 +95,12 @@ public class AssetUsageService {
             @NonNull ReqCreateClientAssetUsageDTO req,
             @NonNull String email) {
         assertValidTimeRange(req.getStartTime(), req.getEndTime());
+        // Validate số lượng mượn trước khi lưu — logic thật ở backend, FE chỉ hiển thị.
+        assertBorrowDevicesJsonWithinPerDeviceLimit(req.getBorrowDevicesJson());
         User user = userService.handleGetUserByUsername(email);
         Asset asset = assetRepository.findById(req.getAssetId())
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy tài sản với ID = " + req.getAssetId()));
+        assertWithinAssetBookingWindow(asset, req.getDate(), req.getStartTime(), req.getEndTime());
         assertNoOverlap(req.getAssetId(), req.getDate(), req.getStartTime(), req.getEndTime(), 0L);
 
         AssetUsage u = new AssetUsage();
@@ -84,6 +110,7 @@ public class AssetUsageService {
         // để admin/history hiển thị đúng luồng “mượn - trả thiết bị”.
         boolean hasBorrowDevices = req.getBorrowDevicesJson() != null && !req.getBorrowDevicesJson().trim().isEmpty();
         u.setUsageType(hasBorrowDevices ? AssetUsageType.BORROW : AssetUsageType.RENT);
+        u.setUsageFeeMode(nvlAssetRoomFee(asset.getRoomFeeMode()));
         u.setUsageDate(req.getDate());
         u.setStartTime(req.getStartTime());
         u.setEndTime(req.getEndTime());
@@ -135,6 +162,7 @@ public class AssetUsageService {
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy user với ID = " + req.getUserId()));
         Asset asset = assetRepository.findById(req.getAssetId())
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy tài sản với ID = " + req.getAssetId()));
+        assertWithinAssetBookingWindow(asset, req.getDate(), req.getStartTime(), req.getEndTime());
         assertNoOverlap(req.getAssetId(), req.getDate(), req.getStartTime(), req.getEndTime(), 0L);
 
         AssetUsage u = new AssetUsage();
@@ -147,6 +175,7 @@ public class AssetUsageService {
         u.setEndTime(req.getEndTime());
         u.setSubject(req.getSubject().trim());
         u.setStatus(req.getStatus() != null ? req.getStatus() : AssetUsageStatus.PENDING);
+        u.setUsageFeeMode(nvlAssetRoomFee(req.getUsageFeeMode() != null ? req.getUsageFeeMode() : asset.getRoomFeeMode()));
 
         AssetUsage saved = assetUsageRepository.save(u);
         return convertToResCreateAssetUsageDTO(saved);
@@ -215,6 +244,7 @@ public class AssetUsageService {
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy user với ID = " + req.getUserId()));
         Asset asset = assetRepository.findById(req.getAssetId())
                 .orElseThrow(() -> new BadRequestException("Không tìm thấy tài sản với ID = " + req.getAssetId()));
+        assertWithinAssetBookingWindow(asset, req.getDate(), req.getStartTime(), req.getEndTime());
         assertNoOverlap(req.getAssetId(), req.getDate(), req.getStartTime(), req.getEndTime(), id);
 
         u.setUser(user);
@@ -225,6 +255,11 @@ public class AssetUsageService {
         u.setEndTime(req.getEndTime());
         u.setSubject(req.getSubject().trim());
         u.setStatus(req.getStatus());
+        if (req.getUsageFeeMode() != null) {
+            u.setUsageFeeMode(nvlAssetRoomFee(req.getUsageFeeMode()));
+        } else {
+            u.setUsageFeeMode(nvlAssetRoomFee(u.getUsageFeeMode() != null ? u.getUsageFeeMode() : asset.getRoomFeeMode()));
+        }
 
         AssetUsage saved = assetUsageRepository.save(u);
 
@@ -275,7 +310,16 @@ public class AssetUsageService {
         }
 
         assertValidTimeRange(req.getStartTime(), req.getEndTime());
+        // Giữ nguyên rule giới hạn mượn khi user sửa booking (tránh bypass bằng API).
+        assertBorrowDevicesJsonWithinPerDeviceLimit(req.getBorrowDevicesJson());
         assertNoOverlap(u.getAsset().getId(), req.getDate(), req.getStartTime(), req.getEndTime(), id);
+
+        Asset refreshedAsset = assetRepository.findById(u.getAsset().getId())
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy tài sản"));
+        assertWithinAssetBookingWindow(refreshedAsset, req.getDate(), req.getStartTime(), req.getEndTime());
+        boolean hasBorrowDevices = req.getBorrowDevicesJson() != null && !req.getBorrowDevicesJson().trim().isEmpty();
+        u.setUsageType(hasBorrowDevices ? AssetUsageType.BORROW : AssetUsageType.RENT);
+        u.setUsageFeeMode(nvlAssetRoomFee(refreshedAsset.getRoomFeeMode()));
 
         u.setUsageDate(req.getDate());
         u.setStartTime(req.getStartTime());
@@ -356,6 +400,7 @@ public class AssetUsageService {
             res.setAssetName(u.getAsset().getAssetName());
         }
         res.setUsageType(u.getUsageType());
+        res.setUsageFeeMode(nvlAssetRoomFee(u.getUsageFeeMode()));
         res.setDate(u.getUsageDate());
         res.setStartTime(u.getStartTime());
         res.setEndTime(u.getEndTime());
@@ -369,6 +414,7 @@ public class AssetUsageService {
         res.setStatus(u.getStatus());
         res.setAssetResponsibleName(u.getAsset() != null ? u.getAsset().getResponsibleName() : null);
         res.setAssetAssetsUrl(u.getAsset() != null ? u.getAsset().getAssetsUrl() : null);
+        res.setAssetRoomFeeMode(u.getAsset() != null ? nvlAssetRoomFee(u.getAsset().getRoomFeeMode()) : AssetRoomFeeMode.FREE);
         res.setCreatedAt(u.getCreatedAt());
         res.setUpdatedAt(u.getUpdatedAt());
         res.setCreatedBy(u.getCreatedBy());
@@ -389,6 +435,7 @@ public class AssetUsageService {
             res.setAssetName(u.getAsset().getAssetName());
         }
         res.setUsageType(u.getUsageType());
+        res.setUsageFeeMode(nvlAssetRoomFee(u.getUsageFeeMode()));
         res.setDate(u.getUsageDate());
         res.setStartTime(u.getStartTime());
         res.setEndTime(u.getEndTime());
@@ -402,6 +449,7 @@ public class AssetUsageService {
         res.setStatus(u.getStatus());
         res.setAssetResponsibleName(u.getAsset() != null ? u.getAsset().getResponsibleName() : null);
         res.setAssetAssetsUrl(u.getAsset() != null ? u.getAsset().getAssetsUrl() : null);
+        res.setAssetRoomFeeMode(u.getAsset() != null ? nvlAssetRoomFee(u.getAsset().getRoomFeeMode()) : AssetRoomFeeMode.FREE);
         res.setCreatedAt(u.getCreatedAt());
         res.setUpdatedAt(u.getUpdatedAt());
         res.setCreatedBy(u.getCreatedBy());
@@ -415,6 +463,7 @@ public class AssetUsageService {
         res.setUserId(u.getUser() != null ? u.getUser().getId() : null);
         res.setAssetId(u.getAsset() != null ? u.getAsset().getId() : null);
         res.setUsageType(u.getUsageType());
+        res.setUsageFeeMode(nvlAssetRoomFee(u.getUsageFeeMode()));
         res.setDate(u.getUsageDate());
         res.setStartTime(u.getStartTime());
         res.setEndTime(u.getEndTime());
@@ -430,6 +479,7 @@ public class AssetUsageService {
         res.setUserId(u.getUser() != null ? u.getUser().getId() : null);
         res.setAssetId(u.getAsset() != null ? u.getAsset().getId() : null);
         res.setUsageType(u.getUsageType());
+        res.setUsageFeeMode(nvlAssetRoomFee(u.getUsageFeeMode()));
         res.setDate(u.getUsageDate());
         res.setStartTime(u.getStartTime());
         res.setEndTime(u.getEndTime());
@@ -440,17 +490,39 @@ public class AssetUsageService {
         return res;
     }
 
-    private void assertValidTimeRange(java.time.LocalTime start, java.time.LocalTime end) {
+    private void assertValidTimeRange(LocalTime start, LocalTime end) {
         if (!start.isBefore(end)) {
             throw new BadRequestException("Giờ bắt đầu phải nhỏ hơn giờ kết thúc");
         }
+        long minutes = Duration.between(start, end).toMinutes();
+        if (minutes < MIN_ROOM_BOOKING_MINUTES) {
+            throw new BadRequestException("Thời lượng đặt phòng tối thiểu là " + MIN_ROOM_BOOKING_MINUTES + " phút");
+        }
     }
 
-    private void assertNoOverlap(Long assetId, java.time.LocalDate date, java.time.LocalTime start,
-            java.time.LocalTime end, long excludeId) {
+    private void assertNoOverlap(Long assetId, LocalDate date, LocalTime start,
+            LocalTime end, long excludeId) {
         long n = assetUsageRepository.countTimeOverlap(assetId, date, start, end, excludeId, OVERLAP_BLOCKING);
         if (n > 0) {
             throw new BadRequestException("Khung giờ trùng với đăng ký khác trên cùng tài sản và ngày");
+        }
+    }
+
+    private void assertWithinAssetBookingWindow(Asset asset, LocalDate date, LocalTime start, LocalTime end) {
+        if (asset.isOpen24h()) {
+            return;
+        }
+        LocalTime openTime = asset.getOpenTime();
+        LocalTime closeTime = asset.getCloseTime();
+        if (openTime == null || closeTime == null || !openTime.isBefore(closeTime)) {
+            throw new BadRequestException("Phòng chưa cấu hình giờ mở/đóng hợp lệ");
+        }
+        LocalDateTime startDt = date.atTime(start);
+        LocalDateTime endDt = date.atTime(end);
+        LocalDateTime openDt = date.atTime(openTime);
+        LocalDateTime closeDt = date.atTime(closeTime);
+        if (startDt.isBefore(openDt) || endDt.isAfter(closeDt)) {
+            throw new BadRequestException("Khung giờ đặt nằm ngoài thời gian mở phòng");
         }
     }
 
@@ -476,5 +548,80 @@ public class AssetUsageService {
             }
         }
         throw new BadRequestException("Vui lòng nhập số điện thoại");
+    }
+
+    /**
+     * Kiểm tra borrowDevicesJson: mỗi dòng và tổng theo từng deviceId không vượt quá
+     * {@link #MAX_BORROW_QUANTITY_PER_DEVICE_PER_BOOKING}.
+     *
+     * <p>
+     * Lý do: đồng bộ quy tắc “tối đa 10 / phòng / loại thiết bị”; nếu vượt thì trả lỗi rõ ràng cho client.
+     * </p>
+     */
+    private void assertBorrowDevicesJsonWithinPerDeviceLimit(String borrowDevicesJson) {
+        // Không mượn thiết bị => không cần validate JSON.
+        if (borrowDevicesJson == null || borrowDevicesJson.trim().isEmpty()) {
+            return;
+        }
+        String trimmed = borrowDevicesJson.trim();
+        JsonNode root;
+        try {
+            root = borrowDevicesJsonMapper.readTree(trimmed);
+        } catch (Exception ex) {
+            // JSON sai cú pháp => chặn sớm để không lưu dữ liệu rác.
+            throw new BadRequestException("Định dạng dữ liệu thiết bị mượn không hợp lệ");
+        }
+        if (!root.isArray()) {
+            throw new BadRequestException("Định dạng dữ liệu thiết bị mượn không hợp lệ (cần là mảng JSON)");
+        }
+
+        // Gom tổng quantity theo deviceId để chặn trường hợp gửi nhiều dòng cùng một thiết bị.
+        Map<Long, Integer> sumByDeviceId = new HashMap<>();
+
+        for (JsonNode n : root) {
+            if (n == null || !n.isObject()) {
+                continue;
+            }
+            Long deviceId = null;
+            if (n.hasNonNull("deviceId")) {
+                deviceId = n.get("deviceId").asLong();
+            }
+            int qty = 0;
+            if (n.has("quantity") && n.get("quantity").canConvertToInt()) {
+                qty = n.get("quantity").asInt(0);
+            }
+            String deviceLabel = "Thiết bị";
+            if (n.hasNonNull("deviceName")) {
+                String name = n.get("deviceName").asText("");
+                if (!name.isBlank()) {
+                    deviceLabel = name.trim();
+                }
+            } else if (deviceId != null && deviceId > 0) {
+                deviceLabel = "Thiết bị #" + deviceId;
+            }
+
+            if (deviceId == null || deviceId <= 0 || qty <= 0) {
+                continue;
+            }
+
+            // Một dòng không được vượt quá giới hạn (ví dụ quantity = 11).
+            if (qty > MAX_BORROW_QUANTITY_PER_DEVICE_PER_BOOKING) {
+                throw new BadRequestException(String.format(
+                        "Số lượng mượn \"%s\" vượt quá giới hạn cho phép (%d/phòng). Vui lòng giảm số lượng.",
+                        deviceLabel,
+                        MAX_BORROW_QUANTITY_PER_DEVICE_PER_BOOKING));
+            }
+
+            sumByDeviceId.merge(deviceId, qty, Integer::sum);
+        }
+
+        for (Map.Entry<Long, Integer> e : sumByDeviceId.entrySet()) {
+            if (e.getValue() > MAX_BORROW_QUANTITY_PER_DEVICE_PER_BOOKING) {
+                throw new BadRequestException(String.format(
+                        "Tổng số lượng mượn thiết bị #%d vượt quá giới hạn cho phép (%d/phòng). Vui lòng kiểm tra lại.",
+                        e.getKey(),
+                        MAX_BORROW_QUANTITY_PER_DEVICE_PER_BOOKING));
+            }
+        }
     }
 }

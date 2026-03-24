@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
 import com.example.backend.util.constant.assetusage.AssetUsageStatus;
 import com.example.backend.util.constant.assetusage.AssetUsageType;
 
@@ -23,6 +24,8 @@ public class ResAssetUsageListDTO {
     private Long assetId;
     private String assetName;
     private AssetUsageType usageType;
+    /** Miễn phí / có phí ghi trên bản ghi đăng ký. */
+    private AssetRoomFeeMode usageFeeMode;
     private LocalDate date;
     private LocalTime startTime;
     private LocalTime endTime;
@@ -40,6 +43,9 @@ public class ResAssetUsageListDTO {
 
     /** Ảnh minh họa phòng/tài sản. */
     private String assetAssetsUrl;
+
+    /** Miễn phí / có phí theo cấu hình phòng (Asset). */
+    private AssetRoomFeeMode assetRoomFeeMode;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

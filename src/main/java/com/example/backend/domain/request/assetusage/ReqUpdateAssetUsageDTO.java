@@ -3,6 +3,7 @@ package com.example.backend.domain.request.assetusage;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
 import com.example.backend.util.constant.assetusage.AssetUsageStatus;
 import com.example.backend.util.constant.assetusage.AssetUsageType;
 
@@ -25,6 +26,9 @@ public class ReqUpdateAssetUsageDTO {
 
     @NotNull(message = "Loại (thuê/mượn) không được để trống")
     private AssetUsageType usageType;
+
+    /** Null → giữ giá trị cũ (hoặc đồng bộ theo phòng nếu chưa có). */
+    private AssetRoomFeeMode usageFeeMode;
 
     @NotNull(message = "Ngày không được để trống")
     private LocalDate date;

@@ -19,7 +19,11 @@ public class ResAssetRoomTimelineDTO {
     private Long assetId;
     /** PERIODS | FLEXIBLE */
     private String mode;
+    private LocalTime openTime;
+    private LocalTime closeTime;
+    private int slotMinutes;
     private List<ResRoomPeriodSlotDTO> periods;
+    private List<ResRoomFlexibleSlotDTO> slots;
     private LocalTime flexibleViewStart;
     private LocalTime flexibleViewEnd;
     private List<ResRoomBusyIntervalDTO> busyIntervals;

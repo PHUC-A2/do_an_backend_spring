@@ -9,19 +9,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/** Một tiết trong ngày — trạng thái TRỐNG / BẬN / ĐÃ QUA. */
+/** Slot 5 phút cho chế độ đặt giờ linh hoạt của phòng. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ResRoomPeriodSlotDTO {
-    private int periodIndex;
-    private String label;
+public class ResRoomFlexibleSlotDTO {
     private LocalDateTime start;
     private LocalDateTime end;
     private SlotStatus status;
-    /**
-     * Chỉ có giá trị khi status = BUSY để FE hiển thị:
-     * PENDING => BẬN, APPROVED => ĐÃ ĐẶT, IN_PROGRESS => ĐANG MƯỢN
-     */
     private AssetUsageStatus busyUsageStatus;
 }

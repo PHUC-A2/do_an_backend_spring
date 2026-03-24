@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.asset.AssetRoomFeeMode;
 import com.example.backend.util.constant.assetusage.AssetUsageStatus;
 import com.example.backend.util.constant.assetusage.AssetUsageType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -63,6 +64,13 @@ public class AssetUsage {
     @Enumerated(EnumType.STRING)
     @Column(name = "usage_type", nullable = false, length = 32)
     private AssetUsageType usageType;
+
+    /**
+     * Miễn phí / có phí của đăng ký (mượn hoặc thuê) — mặc định FREE; client lấy theo phòng lúc tạo/sửa, admin chỉnh trực tiếp.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "usage_fee_mode", length = 16)
+    private AssetRoomFeeMode usageFeeMode = AssetRoomFeeMode.FREE;
 
     /** Ngày sử dụng — cột usage_date (tránh từ khóa SQL {@code date}). */
     @Column(name = "usage_date", nullable = false)
@@ -125,6 +133,9 @@ public class AssetUsage {
     public void handleBeforeCreate() {
         this.createdBy = SecurityUtil.getCurrentUserLogin().orElse("");
         this.createdAt = Instant.now();
+        if (this.usageFeeMode == null) {
+            this.usageFeeMode = AssetRoomFeeMode.FREE;
+        }
     }
 
     @PreUpdate
