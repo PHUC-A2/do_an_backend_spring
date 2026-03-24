@@ -44,6 +44,8 @@ backend:
 server:
   address: 0.0.0.0
   port: 8080
+  # Đứng sau nginx/HTTPS: nhận X-Forwarded-* để redirect/cookie đúng (một lần cấu hình server)
+  forward-headers-strategy: framework
 payment:
   bank:
     code: ${BANK_CODE}

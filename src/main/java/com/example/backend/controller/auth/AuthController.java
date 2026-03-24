@@ -49,6 +49,7 @@ import com.example.backend.service.EmailService;
 import com.example.backend.service.UserService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
+import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.EmailInvalidException;
@@ -207,6 +208,10 @@ public class AuthController {
                 accountUser.setEmail(user.getEmail());
                 accountUser.setPhoneNumber(user.getPhoneNumber());
                 accountUser.setAvatarUrl(user.getAvatarUrl());
+                accountUser.setNotificationSoundEnabled(Boolean.TRUE.equals(user.getNotificationSoundEnabled()));
+                accountUser.setNotificationSoundPreset(
+                                user.getNotificationSoundPreset() != null ? user.getNotificationSoundPreset()
+                                                : NotificationSoundPresetEnum.DEFAULT);
 
                 // map roles + permissions
                 accountUser.setRoles(

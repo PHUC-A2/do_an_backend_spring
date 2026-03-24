@@ -2,7 +2,6 @@ package com.example.backend.controller.client;
 
 import java.util.List;
 
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,11 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import jakarta.servlet.http.HttpServletResponse;
 
 import com.example.backend.domain.response.notification.ResNotificationDTO;
 import com.example.backend.service.NotificationService;
@@ -28,32 +23,8 @@ import com.example.backend.util.error.IdInvalidException;
 public class ClientNotificationController {
 
     private final NotificationService notificationService;
-    private final SecurityUtil securityUtil;
-
-    public ClientNotificationController(NotificationService notificationService, SecurityUtil securityUtil) {
+    public ClientNotificationController(NotificationService notificationService) {
         this.notificationService = notificationService;
-        this.securityUtil = securityUtil;
-    }
-
-    /**
-     * SSE subscribe endpoint.
-     * EventSource cannot send custom headers, so token is passed as ?token=
-     * The endpoint is in the security whitelist; we decode the token here manually.
-     */
-    @GetMapping(value = "/notifications/subscribe", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@RequestParam(required = false) String token, HttpServletResponse response) {
-        response.setHeader("Cache-Control", "no-cache");
-        response.setHeader("X-Accel-Buffering", "no");
-        response.setHeader("Connection", "keep-alive");
-
-        String email = "";
-        if (token != null && !token.isBlank()) {
-            email = securityUtil.extractSubjectFromToken(token).orElse("");
-        }
-        if (email.isBlank()) {
-            email = SecurityUtil.getCurrentUserLogin().orElse("");
-        }
-        return notificationService.subscribe(email);
     }
 
     @GetMapping("/notifications")

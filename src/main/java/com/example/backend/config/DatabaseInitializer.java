@@ -63,6 +63,8 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         ensureBookingStatusColumnCompatible();
         ensureNotificationTypeColumnCompatible();
+        ensureNotificationSoundEnabledDefaults();
+        ensureNotificationSoundPresetDefaults();
 
         // long countPermissions = permissionRepository.count();
         // 1. Tạo PERMISSION nếu chưa có
@@ -267,6 +269,26 @@ public class DatabaseInitializer implements CommandLineRunner {
         } catch (Exception ex) {
             // Ignore when table/column is not ready yet; app can continue bootstrap safely.
             System.out.println(">>> MIGRATION SKIPPED: " + ex.getMessage());
+        }
+    }
+
+    /** Gán mặc định bật chuông cho user cũ sau khi thêm cột notification_sound_enabled. */
+    private void ensureNotificationSoundEnabledDefaults() {
+        try {
+            jdbcTemplate.execute(
+                    "UPDATE users SET notification_sound_enabled = TRUE WHERE notification_sound_enabled IS NULL");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED notification_sound_enabled: " + ex.getMessage());
+        }
+    }
+
+    /** Gán kiểu chuông DEFAULT cho user cũ sau khi thêm cột notification_sound_preset. */
+    private void ensureNotificationSoundPresetDefaults() {
+        try {
+            jdbcTemplate.execute(
+                    "UPDATE users SET notification_sound_preset = 'DEFAULT' WHERE notification_sound_preset IS NULL OR notification_sound_preset = ''");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED notification_sound_preset: " + ex.getMessage());
         }
     }
 

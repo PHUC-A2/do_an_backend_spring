@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -65,6 +66,15 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String fcmToken;
 
+    /** Bật/tắt chuông thông báo trên giao diện (lưu theo user, đồng bộ đa thiết bị). */
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    private Boolean notificationSoundEnabled = Boolean.TRUE;
+
+    /** Kiểu âm thanh chuông (DEFAULT | SOFT | ALERT). */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 24, columnDefinition = "VARCHAR(24) DEFAULT 'DEFAULT'")
+    private NotificationSoundPresetEnum notificationSoundPreset = NotificationSoundPresetEnum.DEFAULT;
+
     private Instant bannedAt;
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -87,6 +97,12 @@ public class User {
     public void handleBeforeCreate() {
         this.createdBy = SecurityUtil.getCurrentUserLogin().orElse("");
         this.createdAt = Instant.now(); // tạo ra lúc
+        if (this.notificationSoundEnabled == null) {
+            this.notificationSoundEnabled = Boolean.TRUE;
+        }
+        if (this.notificationSoundPreset == null) {
+            this.notificationSoundPreset = NotificationSoundPresetEnum.DEFAULT;
+        }
     }
 
     @PreUpdate

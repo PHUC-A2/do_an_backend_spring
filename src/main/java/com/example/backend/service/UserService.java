@@ -36,6 +36,7 @@ import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.EmailInvalidException;
@@ -359,6 +360,9 @@ public class UserService {
         dto.setEmail(user.getEmail());
         dto.setPhoneNumber(user.getPhoneNumber());
         dto.setAvatarUrl(user.getAvatarUrl());
+        dto.setNotificationSoundEnabled(Boolean.TRUE.equals(user.getNotificationSoundEnabled()));
+        dto.setNotificationSoundPreset(user.getNotificationSoundPreset() != null ? user.getNotificationSoundPreset()
+                : NotificationSoundPresetEnum.DEFAULT);
 
         ResUpdateAccountDTO res = new ResUpdateAccountDTO();
         res.setUser(dto);
@@ -394,6 +398,14 @@ public class UserService {
 
         if (req.getAvatarUrl() != null) {
             user.setAvatarUrl(StringUtils.hasText(req.getAvatarUrl()) ? req.getAvatarUrl() : null);
+        }
+
+        if (req.getNotificationSoundEnabled() != null) {
+            user.setNotificationSoundEnabled(req.getNotificationSoundEnabled());
+        }
+
+        if (req.getNotificationSoundPreset() != null) {
+            user.setNotificationSoundPreset(req.getNotificationSoundPreset());
         }
 
         User userSave = this.userRepository.save(user);

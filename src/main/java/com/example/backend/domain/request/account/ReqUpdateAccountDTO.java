@@ -2,6 +2,9 @@ package com.example.backend.domain.request.account;
 
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+
+import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,4 +22,10 @@ public class ReqUpdateAccountDTO {
     private String phoneNumber;
 
     private String avatarUrl;
+
+    /** null = không đổi; true/false = cập nhật bật/tắt chuông thông báo. */
+    private Boolean notificationSoundEnabled;
+
+    /** null = không đổi; kiểu chuông DEFAULT | SOFT | ALERT. */
+    private NotificationSoundPresetEnum notificationSoundPreset;
 }

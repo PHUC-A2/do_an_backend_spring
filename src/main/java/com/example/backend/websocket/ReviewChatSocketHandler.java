@@ -102,8 +102,8 @@ public class ReviewChatSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        ResReviewMessageDTO saved = reviewService.addReviewMessageByUser(reviewId, actor, payload.getContent());
-        broadcastToRoom(reviewId, saved);
+        // Lưu + broadcast do ReviewService thống nhất (cả WS và REST đều tới mọi client trong phòng)
+        reviewService.addReviewMessageByUser(reviewId, actor, payload.getContent());
     }
 
     @Override
@@ -122,7 +122,8 @@ public class ReviewChatSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private void broadcastToRoom(Long reviewId, ResReviewMessageDTO payload) throws Exception {
+    /** Đẩy tin nhắn tới mọi phiên WebSocket đang mở cùng review (gọi từ service sau khi lưu DB). */
+    public void broadcastToRoom(Long reviewId, ResReviewMessageDTO payload) throws Exception {
         Set<WebSocketSession> sessions = roomSessions.get(reviewId);
         if (sessions == null || sessions.isEmpty()) {
             return;

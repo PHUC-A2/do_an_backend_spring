@@ -2,17 +2,12 @@ package com.example.backend.service;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -30,6 +25,7 @@ import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.IdInvalidException;
+import com.example.backend.websocket.NotificationSocketHandler;
 
 @Service
 public class NotificationService {
@@ -40,18 +36,18 @@ public class NotificationService {
     private final BookingRepository bookingRepository;
     private final UserService userService;
     private final UserRepository userRepository;
-
-    // email -> list of emitters (một user có thể mở nhiều tab)
-    private final Map<String, List<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    private final NotificationSocketHandler notificationSocketHandler;
 
     public NotificationService(NotificationRepository notificationRepository,
             BookingRepository bookingRepository,
             UserService userService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            NotificationSocketHandler notificationSocketHandler) {
         this.notificationRepository = notificationRepository;
         this.bookingRepository = bookingRepository;
         this.userService = userService;
         this.userRepository = userRepository;
+        this.notificationSocketHandler = notificationSocketHandler;
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -65,60 +61,6 @@ public class NotificationService {
     }
 
     // ──────────────────────────────────────────────────────────────
-    // SSE subscription
-    // ──────────────────────────────────────────────────────────────
-
-    public SseEmitter subscribe(String email) {
-        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
-
-        emitters.computeIfAbsent(email, k -> new CopyOnWriteArrayList<>()).add(emitter);
-
-        Runnable cleanup = () -> {
-            List<SseEmitter> list = emitters.get(email);
-            if (list != null) {
-                list.remove(emitter);
-                if (list.isEmpty())
-                    emitters.remove(email, list);
-            }
-        };
-
-        emitter.onCompletion(cleanup);
-        emitter.onTimeout(cleanup);
-        emitter.onError(e -> cleanup.run());
-
-        // Send an initial event immediately so reverse proxies flush headers/body.
-        try {
-            emitter.send(SseEmitter.event().name("connected").data("ok"));
-        } catch (Exception ignored) {
-        }
-
-        return emitter;
-    }
-
-    @Scheduled(fixedDelay = 25_000)
-    public void sendSseKeepAlive() {
-        emitters.forEach((email, userEmitters) -> {
-            if (userEmitters == null || userEmitters.isEmpty()) {
-                return;
-            }
-
-            List<SseEmitter> dead = new ArrayList<>();
-            for (SseEmitter emitter : userEmitters) {
-                try {
-                    emitter.send(SseEmitter.event().name("ping").data("keep-alive"));
-                } catch (Exception e) {
-                    dead.add(emitter);
-                }
-            }
-
-            userEmitters.removeAll(dead);
-            if (userEmitters.isEmpty()) {
-                emitters.remove(email, userEmitters);
-            }
-        });
-    }
-
-    // ──────────────────────────────────────────────────────────────
     // Create & push notification
     // ──────────────────────────────────────────────────────────────
 
@@ -127,6 +69,7 @@ public class NotificationService {
         n.setUser(user);
         n.setType(type);
         n.setMessage(message);
+        fillSenderSnapshot(n);
         n.setRead(false);
         notificationRepository.save(n);
 
@@ -135,51 +78,33 @@ public class NotificationService {
         sendFcmPush(user, resolvePushTitle(type), message);
     }
 
+    private void fillSenderSnapshot(Notification notification) {
+        String actorEmail = SecurityUtil.getCurrentUserLogin().orElse("");
+        if (actorEmail.isBlank()) {
+            notification.setSenderName("Hệ thống");
+            return;
+        }
+        User actor = userRepository.findByEmail(actorEmail);
+        if (actor == null) {
+            notification.setSenderName("Hệ thống");
+            return;
+        }
+        notification.setSenderId(actor.getId());
+        notification.setSenderName(actor.getFullName() != null && !actor.getFullName().isBlank() ? actor.getFullName()
+                : actor.getName());
+        notification.setSenderAvatarUrl(actor.getAvatarUrl());
+    }
+
     private void pushRingToActor(String targetEmail) {
         String actorEmail = SecurityUtil.getCurrentUserLogin().orElse("");
         if (actorEmail.isBlank() || actorEmail.equalsIgnoreCase(targetEmail)) {
             return;
         }
-
-        List<SseEmitter> actorEmitters = emitters.get(actorEmail);
-        if (actorEmitters == null || actorEmitters.isEmpty()) {
-            return;
-        }
-
-        List<SseEmitter> dead = new ArrayList<>();
-        for (SseEmitter emitter : actorEmitters) {
-            try {
-                emitter.send(SseEmitter.event().name("ring").data("actor"));
-            } catch (Exception e) {
-                dead.add(emitter);
-            }
-        }
-
-        actorEmitters.removeAll(dead);
-        if (actorEmitters.isEmpty()) {
-            emitters.remove(actorEmail, actorEmitters);
-        }
+        notificationSocketHandler.sendRingToUser(actorEmail);
     }
 
     private void pushToUser(String email, ResNotificationDTO dto) {
-        List<SseEmitter> userEmitters = emitters.get(email);
-        if (userEmitters == null || userEmitters.isEmpty())
-            return;
-
-        List<SseEmitter> dead = new ArrayList<>();
-        for (SseEmitter emitter : userEmitters) {
-            try {
-                emitter.send(SseEmitter.event()
-                        .name("notification")
-                        .data(dto));
-            } catch (Exception e) {
-                dead.add(emitter);
-            }
-        }
-        userEmitters.removeAll(dead);
-        if (userEmitters.isEmpty()) {
-            emitters.remove(email, userEmitters);
-        }
+        notificationSocketHandler.sendNotificationToUser(email, dto);
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -348,6 +273,9 @@ public class NotificationService {
         dto.setId(n.getId());
         dto.setType(n.getType());
         dto.setMessage(n.getMessage());
+        dto.setSenderId(n.getSenderId());
+        dto.setSenderName(n.getSenderName());
+        dto.setSenderAvatarUrl(n.getSenderAvatarUrl());
         dto.setRead(n.isRead());
         dto.setDeletedByUser(n.isDeletedByUser());
         dto.setCreatedAt(n.getCreatedAt());

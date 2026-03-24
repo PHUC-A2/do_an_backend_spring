@@ -4,6 +4,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -27,28 +30,39 @@ import com.example.backend.repository.ReviewMessageRepository;
 import com.example.backend.repository.ReviewRepository;
 import com.example.backend.repository.UserRepository;
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.websocket.ReviewChatSocketHandler;
 import com.example.backend.util.constant.review.ReviewStatusEnum;
 import com.example.backend.util.constant.review.ReviewTargetTypeEnum;
+import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
+import com.example.backend.websocket.NotificationSocketHandler;
 
 @Service
 public class ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewService.class);
 
     private final ReviewRepository reviewRepository;
     private final ReviewMessageRepository reviewMessageRepository;
     private final UserRepository userRepository;
     private final PitchRepository pitchRepository;
+    private final ReviewChatSocketHandler reviewChatSocketHandler;
+    private final NotificationSocketHandler notificationSocketHandler;
 
     public ReviewService(
             ReviewRepository reviewRepository,
             ReviewMessageRepository reviewMessageRepository,
             UserRepository userRepository,
-            PitchRepository pitchRepository) {
+            PitchRepository pitchRepository,
+            @Lazy ReviewChatSocketHandler reviewChatSocketHandler,
+            NotificationSocketHandler notificationSocketHandler) {
         this.reviewRepository = reviewRepository;
         this.reviewMessageRepository = reviewMessageRepository;
         this.userRepository = userRepository;
         this.pitchRepository = pitchRepository;
+        this.reviewChatSocketHandler = reviewChatSocketHandler;
+        this.notificationSocketHandler = notificationSocketHandler;
     }
 
     @Transactional
@@ -170,7 +184,39 @@ public class ReviewService {
         message.setDeliveredAt(null);
         message.setReadAt(null);
 
-        return toResReviewMessageDTO(reviewMessageRepository.save(message));
+        ResReviewMessageDTO dto = toResReviewMessageDTO(reviewMessageRepository.save(message));
+        // Phát realtime tới mọi client trong phòng chat (admin + user), kể cả khi gửi qua REST
+        try {
+            reviewChatSocketHandler.broadcastToRoom(reviewId, dto);
+        } catch (Exception ex) {
+            log.warn("[review-chat] Broadcast WebSocket thất bại, tin đã lưu DB: {}", ex.getMessage());
+        }
+        // Chuông đối phương qua /ws/notifications (một nguồn âm, trùng với Header/AdminSidebar)
+        pushReviewChatRingToCounterpart(review, sender);
+        return dto;
+    }
+
+    /** Gửi sự kiện ring tới khách (admin gửi) hoặc tới các admin đang online (khách gửi). */
+    private void pushReviewChatRingToCounterpart(Review review, User sender) {
+        try {
+            User senderManaged = userRepository.findById(sender.getId()).orElse(sender);
+            boolean senderIsAdmin = senderManaged.getRoles().stream().map(Role::getName).anyMatch("ADMIN"::equals);
+            if (senderIsAdmin) {
+                User owner = review.getUser();
+                if (owner != null && owner.getEmail() != null
+                        && !owner.getEmail().equalsIgnoreCase(senderManaged.getEmail())) {
+                    notificationSocketHandler.sendRingToUser(owner.getEmail());
+                }
+                return;
+            }
+            userRepository.findDistinctByRoles_Name("ADMIN").stream()
+                    .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
+                    .filter(admin -> admin.getEmail() != null
+                            && !admin.getEmail().equalsIgnoreCase(senderManaged.getEmail()))
+                    .forEach(admin -> notificationSocketHandler.sendRingToUser(admin.getEmail()));
+        } catch (Exception ex) {
+            log.warn("[review-chat] Gửi chuông tới đối phương thất bại: {}", ex.getMessage());
+        }
     }
 
     @Transactional(readOnly = true)

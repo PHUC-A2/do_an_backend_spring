@@ -55,7 +55,6 @@ public class SecurityConfiguration {
                                 "/api/v1/test-mail",
                                 "/api/v1/pitches/**",
                                 "/api/v1/client/public/**",
-                                "/api/v1/client/notifications/subscribe",
                                 "/api/v1/client/ai/**",
                                 "/api/v1/files/**",
                                 "/storage/**",

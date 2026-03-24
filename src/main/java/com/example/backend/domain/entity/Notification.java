@@ -44,6 +44,15 @@ public class Notification {
     @Column(nullable = false, length = 500)
     private String message;
 
+    @Column(name = "sender_id")
+    private Long senderId;
+
+    @Column(name = "sender_name", length = 120)
+    private String senderName;
+
+    @Column(name = "sender_avatar_url", length = 1000)
+    private String senderAvatarUrl;
+
     @Column(nullable = false)
     private boolean isRead = false;
 

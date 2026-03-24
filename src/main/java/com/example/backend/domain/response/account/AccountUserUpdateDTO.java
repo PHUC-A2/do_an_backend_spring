@@ -1,5 +1,7 @@
 package com.example.backend.domain.response.account;
 
+import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,4 +14,8 @@ public class AccountUserUpdateDTO {
     private String email;
     private String phoneNumber;
     private String avatarUrl;
+
+    private Boolean notificationSoundEnabled;
+
+    private NotificationSoundPresetEnum notificationSoundPreset;
 }
