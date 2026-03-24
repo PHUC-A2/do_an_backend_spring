@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,12 +63,19 @@ public class AiService {
     private int maxOffTopic;
     @Value("${ai.chat.max-on-topic-per-day:100}")
     private int maxOnTopic;
+    @Value("${ai.chat.min-message-length:3}")
+    private int minMessageLength;
+    @Value("${ai.chat.duplicate-user-message-window:12}")
+    private int duplicateMessageWindow;
+    @Value("${ai.chat.duplicate-user-message-min-repeats:2}")
+    private int duplicateMinRepeats;
 
     private final AiChatSessionRepository sessionRepo;
     private final BookingRepository bookingRepository;
     private final PitchRepository pitchRepository;
     private final RevenueService revenueService;
     private final AiApiKeyService aiApiKeyService;
+    private final AiKnowledgeContextService aiKnowledgeContextService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
@@ -105,7 +113,12 @@ public class AiService {
             "- Nếu câu hỏi không liên quan đến đặt sân/thể thao, nhẹ nhàng từ chối và hướng về chủ đề chính\n" +
             "- Không bịa đặt thông tin không có trong hệ thống\n" +
             "- Nếu không biết: *'Tôi không có thông tin này, vui lòng liên hệ admin để được hỗ trợ!'*\n" +
-            "- Khi gợi ý đặt sân, luôn kèm link hoặc hướng dẫn vào trang /pitch\n";
+            "- Khi gợi ý đặt sân, luôn kèm link hoặc hướng dẫn vào trang /pitch\n" +
+            "\n" +
+            "## ƯU TIÊN TRẢ LỜI (GIẢM SPAM)\n" +
+            "- Một câu trả lời đủ ý; tránh kéo dài hội thoại khi đã giải quyết xong.\n" +
+            "- Nếu người dùng chỉ chào hỏi: chào lại ngắn và hỏi *một* câu gợi ý (vd: muốn đặt sân ngày nào).\n" +
+            "- Không nhắc lại toàn bộ bảng số; chỉ trích số liệu liên quan câu hỏi.\n";
 
     private static final String OFF_TOPIC_REGEX = "(?i)(thoi tiet|weather|nau an|recipe|phim|movie|am nhac|music|toan hoc|"
             +
@@ -116,19 +129,36 @@ public class AiService {
             BookingRepository bookingRepository,
             PitchRepository pitchRepository,
             RevenueService revenueService,
-            AiApiKeyService aiApiKeyService) {
+            AiApiKeyService aiApiKeyService,
+            AiKnowledgeContextService aiKnowledgeContextService) {
         this.sessionRepo = sessionRepo;
         this.bookingRepository = bookingRepository;
         this.pitchRepository = pitchRepository;
         this.revenueService = revenueService;
         this.aiApiKeyService = aiApiKeyService;
+        this.aiKnowledgeContextService = aiKnowledgeContextService;
     }
 
     // ─── Client chat ─────────────────────────────────────────────────────────
     public ResChatDTO chat(ReqChatDTO req, User user) {
+        String raw = req.getMessage() != null ? req.getMessage() : "";
+        String trimmed = raw.trim();
+        if (trimmed.length() < minMessageLength) {
+            return new ResChatDTO(
+                    "Vui lòng nhập câu hỏi rõ ràng (ít nhất " + minMessageLength
+                            + " ký tự, không tính khoảng trắng thừa) để mình hỗ trợ chính xác nhé!",
+                    "SYSTEM", false, getRemainingMessages(user));
+        }
+        if (isDuplicateUserSpam(req.getHistory(), trimmed)) {
+            return new ResChatDTO(
+                    "Bạn đã gửi cùng nội dung nhiều lần liên tiếp. Hãy gộp ý trong một tin nhắn hoặc nêu rõ thêm chi tiết "
+                            + "(sân, ngày giờ, vấn đề) để tránh spam và được trả lời tốt hơn.",
+                    "SYSTEM", false, getRemainingMessages(user));
+        }
+
         String today = LocalDate.now().toString();
         AiChatSession session = getOrCreateSession(user, today);
-        boolean offTopic = isOffTopic(req.getMessage());
+        boolean offTopic = isOffTopic(trimmed);
 
         if (offTopic && session.getOffTopicCount() >= maxOffTopic) {
             return new ResChatDTO(
@@ -143,7 +173,7 @@ public class AiService {
         }
 
         String systemPrompt = buildClientSystemPrompt();
-        String enriched = offTopic ? req.getMessage() : enrichWithContext(req.getMessage(), user);
+        String enriched = offTopic ? trimmed : enrichWithContext(trimmed, user);
         String[] providerUsed = { "" };
         String reply = callWithFallback(buildMessagesWithCustomSystem(req.getHistory(), enriched, systemPrompt),
                 providerUsed);
@@ -162,8 +192,21 @@ public class AiService {
 
     // ─── Admin chat ───────────────────────────────────────────────────────────
     public ResChatDTO adminChat(ReqChatDTO req, User user) {
+        String raw = req.getMessage() != null ? req.getMessage() : "";
+        String trimmed = raw.trim();
+        if (trimmed.length() < minMessageLength) {
+            return new ResChatDTO(
+                    "Nhập yêu cầu ít nhất " + minMessageLength + " ký tự (ví dụ: “Tóm tắt booking tuần này”).",
+                    "SYSTEM", false, 999);
+        }
+        if (isDuplicateUserSpam(req.getHistory(), trimmed)) {
+            return new ResChatDTO(
+                    "Nội dung trùng lặp nhiều lần — vui lòng gộp câu hỏi hoặc bổ sung chi tiết.",
+                    "SYSTEM", false, 999);
+        }
+
         String systemPrompt = buildAdminSystemPrompt();
-        String enriched = req.getMessage() + "\n\n[Thời gian: " +
+        String enriched = trimmed + "\n\n[Thời gian: " +
                 LocalDateTime.now().format(DT_FMT) + "]";
         String[] providerUsed = { "" };
         String reply = callWithFallback(buildMessagesWithCustomSystem(req.getHistory(), enriched, systemPrompt),
@@ -174,6 +217,8 @@ public class AiService {
     // ─── Xây system prompt có dữ liệu sân thực tế ────────────────────────────
     private String buildClientSystemPrompt() {
         StringBuilder prompt = new StringBuilder(BASE_SYSTEM_PROMPT);
+        prompt.append("\n").append(aiKnowledgeContextService.getFeatureCatalogMarkdown());
+        prompt.append("\n").append(aiKnowledgeContextService.buildAggregatedSnapshotMarkdown());
         appendPitchInfo(prompt);
         appendAvailablePitchesToday(prompt);
         return prompt.toString();
@@ -181,6 +226,8 @@ public class AiService {
 
     private String buildAdminSystemPrompt() {
         StringBuilder prompt = new StringBuilder(BASE_SYSTEM_PROMPT);
+        prompt.append("\n").append(aiKnowledgeContextService.getFeatureCatalogMarkdown());
+        prompt.append("\n").append(aiKnowledgeContextService.buildAggregatedSnapshotMarkdown());
         appendPitchInfo(prompt);
         appendAvailablePitchesToday(prompt);
 
@@ -207,7 +254,8 @@ public class AiService {
                 .append("- Bạn có thể phân tích thống kê, doanh thu, xu hướng booking\n")
                 .append("- Gợi ý các biện pháp tăng doanh thu, tối ưu lịch sân\n")
                 .append("- Trả lời mọi câu hỏi của admin (không giới hạn chủ đề)\n")
-                .append("- Nếu cần thông tin chi tiết hơn, đề nghị admin xem trang Thống kê\n");
+                .append("- Nếu cần thông tin chi tiết hơn, đề nghị admin xem trang Thống kê\n")
+                .append("- Vẫn tuân thủ: không tiết lộ mật khẩu, token, OTP, mã payment, URL chứng từ, API key.\n");
 
         return prompt.toString();
     }
@@ -344,6 +392,48 @@ public class AiService {
 
     private boolean isOffTopic(String message) {
         return message.matches(".*" + OFF_TOPIC_REGEX + ".*");
+    }
+
+    private static final Pattern SPACES = Pattern.compile("\\s+");
+
+    /** Chuẩn hóa để so sánh tin nhắn lặp. */
+    private static String normalizeForDuplicate(String s) {
+        if (s == null) {
+            return "";
+        }
+        return SPACES.matcher(s.trim().toLowerCase()).replaceAll(" ").strip();
+    }
+
+    /**
+     * True nếu trong cửa sổ lịch sử gần đây đã có ít nhất {@link #duplicateMinRepeats} tin user trùng nội dung
+     * (tin hiện tại là lần lặp thứ 3 trở lên).
+     */
+    private boolean isDuplicateUserSpam(List<ReqChatDTO.MessageDTO> history, String currentMessage) {
+        String cur = normalizeForDuplicate(currentMessage);
+        if (cur.length() < 8) {
+            return false;
+        }
+        if (history == null || history.isEmpty()) {
+            return false;
+        }
+        int repeat = 0;
+        int start = Math.max(0, history.size() - duplicateMessageWindow);
+        for (int i = history.size() - 1; i >= start; i--) {
+            ReqChatDTO.MessageDTO m = history.get(i);
+            if (m == null || m.getRole() == null || m.getContent() == null) {
+                continue;
+            }
+            if (!"user".equalsIgnoreCase(m.getRole().trim())) {
+                continue;
+            }
+            if (cur.equals(normalizeForDuplicate(m.getContent()))) {
+                repeat++;
+                if (repeat >= duplicateMinRepeats) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private List<ObjectNode> buildMessagesWithCustomSystem(List<ReqChatDTO.MessageDTO> history,

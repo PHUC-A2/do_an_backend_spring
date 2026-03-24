@@ -69,4 +69,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
             @Param("end") Instant end
     );
 
+    long countByStatus(PaymentStatusEnum status);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status")
+    BigDecimal sumAmountByStatus(@Param("status") PaymentStatusEnum status);
+
 }

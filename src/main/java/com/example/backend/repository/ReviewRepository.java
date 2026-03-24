@@ -39,4 +39,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
     List<Object[]> findPitchRatingSummaryByPitchIds(
             @Param("pitchIds") List<Long> pitchIds,
             @Param("status") ReviewStatusEnum status);
+
+    long countByStatus(ReviewStatusEnum status);
 }

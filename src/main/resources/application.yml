@@ -71,3 +71,7 @@ ai:
   chat:
     max-off-topic-per-day: 15
     max-on-topic-per-day: 100
+    # Chống spam: tin quá ngắn / lặp lại cùng nội dung (không gọi LLM)
+    min-message-length: 3
+    duplicate-user-message-window: 12
+    duplicate-user-message-min-repeats: 2

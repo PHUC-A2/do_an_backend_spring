@@ -21,4 +21,6 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
             NotificationTypeEnum type,
             Instant from,
             Instant to);
+
+    long countByIsReadFalse();
 }

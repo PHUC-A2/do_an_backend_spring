@@ -81,4 +81,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long>, JpaSpec
 
         long countByStatus(BookingStatusEnum status);
 
+        /** Booking chưa bị user ẩn khỏi lịch sử — theo từng trạng thái. */
+        long countByDeletedByUserFalseAndStatus(BookingStatusEnum status);
+
 }

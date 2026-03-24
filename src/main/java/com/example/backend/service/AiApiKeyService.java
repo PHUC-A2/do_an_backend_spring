@@ -2,12 +2,11 @@ package com.example.backend.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.AiApiKey;
-import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.ai.ReqAiKeyDTO;
 import com.example.backend.domain.response.ai.ResAiKeyDTO;
 import com.example.backend.repository.AiApiKeyRepository;
@@ -23,10 +22,6 @@ public class AiApiKeyService {
 
     private final AiApiKeyRepository keyRepo;
     private final NotificationService notificationService;
-    private final UserService userService;
-
-    @Value("${admin.email:admin@gmail.com}")
-    private String adminEmail;
 
     // ─── CRUD ────────────────────────────────────────────────────────────────
 
@@ -90,34 +85,58 @@ public class AiApiKeyService {
     }
 
     /**
-     * Đánh dấu key bị lỗi (rate limit / expired) → tắt và thông báo admin.
+     * Đánh dấu key bị lỗi (401/429/hết hạn) → chỉ khi vừa tắt key đang active mới gửi thông báo (tránh spam).
      */
     public void markKeyFailed(AiProviderEnum provider, String failedKey) {
-        keyRepo.findByProviderAndActiveTrueOrderByIdAsc(provider).stream()
-            .filter(k -> k.getApiKey().equals(failedKey))
-            .findFirst()
-            .ifPresent(k -> {
-                k.setActive(false);
-                keyRepo.save(k);
-            });
+        if (failedKey == null || failedKey.isBlank()) {
+            return;
+        }
+        // Tìm đúng bản ghi theo provider + chuỗi key (không lọc active) để biết đã tắt trước đó hay chưa
+        Optional<AiApiKey> row = keyRepo.findFirstByProviderAndApiKeyOrderByIdAsc(provider, failedKey.trim());
+        if (row.isEmpty()) {
+            return;
+        }
+        AiApiKey k = row.get();
+        if (!k.isActive()) {
+            // Đã vô hiệu trước đó — không gửi lại thông báo
+            return;
+        }
+        // Tắt key vừa gọi lỗi
+        k.setActive(false);
+        keyRepo.save(k);
 
         long remaining = keyRepo.countByProviderAndActiveTrue(provider);
-        notifyAdmins(provider, remaining);
+        notifyAllAdminsKeyDisabled(k, remaining);
     }
 
     // ─── Thông báo admin ─────────────────────────────────────────────────────
 
-    private void notifyAdmins(AiProviderEnum provider, long remainingKeys) {
+    /** Gửi cho mọi admin đang hoạt động: nêu rõ provider, id, nhãn, mã che — để biết key nào cần thay. */
+    private void notifyAllAdminsKeyDisabled(AiApiKey disabledKey, long remainingKeys) {
         try {
-            User admin = userService.handleGetUserByUsername(adminEmail);
-            if (admin == null) return;
+            String labelVi = providerLabelVi(disabledKey.getProvider());
+            String labelPart = disabledKey.getLabel() != null && !disabledKey.getLabel().isBlank()
+                ? "Nhãn: \"" + disabledKey.getLabel().trim() + "\". "
+                : "";
+            String masked = maskKey(disabledKey.getApiKey());
             String msg = remainingKeys > 0
-                ? "⚠️ Một key AI [" + provider.name() + "] đã hết hạn/lỗi. Còn " + remainingKeys + " key active. Vui lòng thêm key mới tại trang Quản lý AI."
-                : "🚨 TẤT CẢ key AI [" + provider.name() + "] đã hết hạn! Hệ thống AI đang không hoạt động. Vui lòng thêm key ngay tại trang Quản lý AI.";
-            notificationService.createAndPush(admin, NotificationTypeEnum.AI_KEY_EXPIRED, msg);
+                ? "⚠️ Key AI đã bị vô hiệu: " + labelVi + " (ID #" + disabledKey.getId() + "). "
+                    + labelPart + "Mã: " + masked + ". Còn " + remainingKeys + " key đang bật cho nhà cung cấp này. Vào Quản lý AI để thêm key mới nếu cần."
+                : "🚨 Key AI đã bị vô hiệu: " + labelVi + " (ID #" + disabledKey.getId() + "). "
+                    + labelPart + "Mã: " + masked + ". Không còn key active cho " + labelVi + " — chat AI có thể ngừng hoạt động. Thêm key mới ngay tại Quản lý AI.";
+            notificationService.notifyAdmins(NotificationTypeEnum.AI_KEY_EXPIRED, msg);
         } catch (Exception e) {
             // Không để lỗi thông báo ảnh hưởng luồng chính
         }
+    }
+
+    /** Tên hiển thị tiếng Việt/ngắn gọn để admin phân biệt Groq / Gemini / Cloudflare. */
+    private String providerLabelVi(AiProviderEnum p) {
+        return switch (p) {
+            case GROQ -> "Groq";
+            case GEMINI -> "Google Gemini";
+            case CLOUDFLARE -> "Cloudflare AI";
+        };
     }
 
     // ─── Helper ──────────────────────────────────────────────────────────────

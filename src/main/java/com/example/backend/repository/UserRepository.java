@@ -14,6 +14,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Repository;
 
 import com.example.backend.domain.entity.User;
+import com.example.backend.util.constant.user.UserStatusEnum;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
@@ -42,5 +43,8 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
         List<User> findDistinctByRoles_Name(String roleName);
 
         long count();
+
+        /** Số user theo trạng thái tài khoản — phục vụ dashboard. */
+        long countByStatus(UserStatusEnum status);
 
 }
