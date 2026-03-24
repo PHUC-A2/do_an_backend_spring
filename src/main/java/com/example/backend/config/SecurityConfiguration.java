@@ -59,6 +59,7 @@ public class SecurityConfiguration {
                                 "/api/v1/client/ai/**",
                                 "/api/v1/files/**",
                                 "/storage/**",
+                                "/ws/**"
                 };
 
                 http

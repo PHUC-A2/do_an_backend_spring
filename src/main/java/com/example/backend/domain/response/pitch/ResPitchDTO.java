@@ -31,6 +31,8 @@ public class ResPitchDTO {
     private Double width;
     private Double height;
     private String imageUrl;
+    private Double averageRating;
+    private Long reviewCount;
     private Instant createdAt;
     private Instant updatedAt;
     private String createdBy;

@@ -30,6 +30,8 @@ public class ResCreatePitchDTO {
     private Double width;
     private Double height;
     private String imageUrl;
+    private Double averageRating;
+    private Long reviewCount;
     private Instant createdAt;
     private String createdBy;
 }

@@ -31,6 +31,8 @@ public class ResUpdatePitchDTO {
     private Double width;
     private Double height;
     private String imageUrl;
+    private Double averageRating;
+    private Long reviewCount;
     private Instant updatedAt;
     private String updatedBy;
 }

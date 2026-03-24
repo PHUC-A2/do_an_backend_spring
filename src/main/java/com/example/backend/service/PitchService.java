@@ -1,7 +1,9 @@
 package com.example.backend.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -19,6 +21,8 @@ import com.example.backend.domain.response.pitch.ResPitchDTO;
 import com.example.backend.domain.response.pitch.ResUpdatePitchDTO;
 import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.repository.PitchRepository;
+import com.example.backend.repository.ReviewRepository;
+import com.example.backend.util.constant.review.ReviewStatusEnum;
 import com.example.backend.util.error.IdInvalidException;
 
 @Service
@@ -26,10 +30,15 @@ public class PitchService {
 
     private final PitchRepository pitchRepository;
     private final PitchEquipmentRepository pitchEquipmentRepository;
+    private final ReviewRepository reviewRepository;
 
-    public PitchService(PitchRepository pitchRepository, PitchEquipmentRepository pitchEquipmentRepository) {
+    public PitchService(
+            PitchRepository pitchRepository,
+            PitchEquipmentRepository pitchEquipmentRepository,
+            ReviewRepository reviewRepository) {
         this.pitchRepository = pitchRepository;
         this.pitchEquipmentRepository = pitchEquipmentRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     public ResCreatePitchDTO createPitch(@NonNull ReqCreatePitchDTO req) {
@@ -37,7 +46,7 @@ public class PitchService {
         Pitch pitch = this.convertToReqCreatePitch(req);
         Pitch savedPitch = this.pitchRepository.save(pitch);
 
-        return this.convertToResCreatePitchDTO(savedPitch);
+        return this.convertToResCreatePitchDTO(savedPitch, PitchRatingSummary.empty());
     }
 
     public ResultPaginationDTO getAllPitches(Specification<Pitch> spec, @NonNull Pageable pageable) {
@@ -55,8 +64,10 @@ public class PitchService {
         rs.setMeta(mt);
 
         List<ResPitchDTO> resList = new ArrayList<>();
+        Map<Long, PitchRatingSummary> summaryMap = buildPitchRatingSummaryMap(pagePitch.getContent());
         for (Pitch pitch : pagePitch.getContent()) {
-            resList.add(this.convertToResPitchDTO(pitch));
+            PitchRatingSummary summary = summaryMap.getOrDefault(pitch.getId(), PitchRatingSummary.empty());
+            resList.add(this.convertToResPitchDTO(pitch, summary));
         }
 
         rs.setResult(resList);
@@ -95,7 +106,7 @@ public class PitchService {
 
         Pitch updatedPitch = this.pitchRepository.save(pitch);
 
-        return this.convertToResUpdatePitchDTO(updatedPitch);
+        return this.convertToResUpdatePitchDTO(updatedPitch, resolveRatingSummary(updatedPitch.getId()));
     }
 
     public void deletePitch(@NonNull Long id) throws IdInvalidException {
@@ -132,7 +143,7 @@ public class PitchService {
     }
 
     // entity -> res create
-    public ResCreatePitchDTO convertToResCreatePitchDTO(Pitch pitch) {
+    public ResCreatePitchDTO convertToResCreatePitchDTO(Pitch pitch, PitchRatingSummary summary) {
 
         ResCreatePitchDTO res = new ResCreatePitchDTO();
 
@@ -152,6 +163,8 @@ public class PitchService {
         res.setWidth(pitch.getWidth());
         res.setHeight(pitch.getHeight());
         res.setImageUrl(pitch.getImageUrl());
+        res.setAverageRating(summary.averageRating());
+        res.setReviewCount(summary.reviewCount());
 
         res.setCreatedAt(pitch.getCreatedAt());
         res.setCreatedBy(pitch.getCreatedBy());
@@ -160,7 +173,7 @@ public class PitchService {
     }
 
     // entity -> res update
-    public ResUpdatePitchDTO convertToResUpdatePitchDTO(Pitch pitch) {
+    public ResUpdatePitchDTO convertToResUpdatePitchDTO(Pitch pitch, PitchRatingSummary summary) {
 
         ResUpdatePitchDTO res = new ResUpdatePitchDTO();
 
@@ -180,6 +193,8 @@ public class PitchService {
         res.setWidth(pitch.getWidth());
         res.setHeight(pitch.getHeight());
         res.setImageUrl(pitch.getImageUrl());
+        res.setAverageRating(summary.averageRating());
+        res.setReviewCount(summary.reviewCount());
 
         res.setUpdatedAt(pitch.getUpdatedAt());
         res.setUpdatedBy(pitch.getUpdatedBy());
@@ -189,6 +204,11 @@ public class PitchService {
 
     // entity -> res get
     public ResPitchDTO convertToResPitchDTO(Pitch pitch) {
+        return convertToResPitchDTO(pitch, resolveRatingSummary(pitch.getId()));
+    }
+
+    // entity -> res get (có sẵn summary để tránh query lặp)
+    public ResPitchDTO convertToResPitchDTO(Pitch pitch, PitchRatingSummary summary) {
 
         ResPitchDTO res = new ResPitchDTO();
 
@@ -208,6 +228,8 @@ public class PitchService {
         res.setWidth(pitch.getWidth());
         res.setHeight(pitch.getHeight());
         res.setImageUrl(pitch.getImageUrl());
+        res.setAverageRating(summary.averageRating());
+        res.setReviewCount(summary.reviewCount());
 
         res.setCreatedAt(pitch.getCreatedAt());
         res.setCreatedBy(pitch.getCreatedBy());
@@ -215,5 +237,46 @@ public class PitchService {
         res.setUpdatedBy(pitch.getUpdatedBy());
 
         return res;
+    }
+
+    private Map<Long, PitchRatingSummary> buildPitchRatingSummaryMap(List<Pitch> pitches) {
+        Map<Long, PitchRatingSummary> result = new HashMap<>();
+        if (pitches == null || pitches.isEmpty()) {
+            return result;
+        }
+
+        List<Long> pitchIds = pitches.stream().map(Pitch::getId).toList();
+        List<Object[]> rows = reviewRepository.findPitchRatingSummaryByPitchIds(pitchIds, ReviewStatusEnum.APPROVED);
+        for (Object[] row : rows) {
+            Long pitchId = (Long) row[0];
+            Double average = row[1] == null ? 0d : ((Number) row[1]).doubleValue();
+            Long count = row[2] == null ? 0L : ((Number) row[2]).longValue();
+            result.put(pitchId, new PitchRatingSummary(roundToOneDecimal(average), count));
+        }
+        return result;
+    }
+
+    private PitchRatingSummary resolveRatingSummary(Long pitchId) {
+        if (pitchId == null) {
+            return PitchRatingSummary.empty();
+        }
+        List<Object[]> rows = reviewRepository.findPitchRatingSummaryByPitchIds(List.of(pitchId), ReviewStatusEnum.APPROVED);
+        if (rows.isEmpty()) {
+            return PitchRatingSummary.empty();
+        }
+        Object[] row = rows.get(0);
+        Double average = row[1] == null ? 0d : ((Number) row[1]).doubleValue();
+        Long count = row[2] == null ? 0L : ((Number) row[2]).longValue();
+        return new PitchRatingSummary(roundToOneDecimal(average), count);
+    }
+
+    private double roundToOneDecimal(double value) {
+        return Math.round(value * 10.0) / 10.0;
+    }
+
+    private record PitchRatingSummary(Double averageRating, Long reviewCount) {
+        private static PitchRatingSummary empty() {
+            return new PitchRatingSummary(0d, 0L);
+        }
     }
 }
