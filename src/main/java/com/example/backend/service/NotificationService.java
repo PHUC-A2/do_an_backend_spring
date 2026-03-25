@@ -73,8 +73,8 @@ public class NotificationService {
         n.setRead(false);
         notificationRepository.save(n);
 
+        // Đẩy payload tới mọi tab đang mở của người nhận — FE phát chuông trong handler event "notification"
         pushToUser(user.getEmail(), convertToDTO(n));
-        pushRingToActor(user.getEmail());
         sendFcmPush(user, resolvePushTitle(type), message);
     }
 
@@ -93,14 +93,6 @@ public class NotificationService {
         notification.setSenderName(actor.getFullName() != null && !actor.getFullName().isBlank() ? actor.getFullName()
                 : actor.getName());
         notification.setSenderAvatarUrl(actor.getAvatarUrl());
-    }
-
-    private void pushRingToActor(String targetEmail) {
-        String actorEmail = SecurityUtil.getCurrentUserLogin().orElse("");
-        if (actorEmail.isBlank() || actorEmail.equalsIgnoreCase(targetEmail)) {
-            return;
-        }
-        notificationSocketHandler.sendRingToUser(actorEmail);
     }
 
     private void pushToUser(String email, ResNotificationDTO dto) {

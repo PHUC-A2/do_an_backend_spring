@@ -1,6 +1,7 @@
 package com.example.backend.websocket;
 
 import java.net.URI;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -49,7 +50,8 @@ public class NotificationSocketHandler extends TextWebSocketHandler {
             return;
         }
 
-        String email = user.getEmail();
+        // Khóa map theo email chữ thường để khớp khi broadcast (JWT/DB có thể khác hoa thường)
+        String email = canonicalEmail(user.getEmail());
         session.getAttributes().put(ATTR_USER_EMAIL, email);
         userSessions.computeIfAbsent(email, key -> ConcurrentHashMap.newKeySet()).add(session);
         sendEvent(session, "connected", "ok");
@@ -71,15 +73,25 @@ public class NotificationSocketHandler extends TextWebSocketHandler {
     }
 
     public void sendNotificationToUser(String email, ResNotificationDTO dto) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
         broadcastToUser(email, "notification", dto);
     }
 
     public void sendRingToUser(String email) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
         broadcastToUser(email, "ring", "actor");
     }
 
     private void broadcastToUser(String email, String event, Object payload) {
-        Set<WebSocketSession> sessions = userSessions.get(email);
+        String key = canonicalEmail(email);
+        if (key.isEmpty()) {
+            return;
+        }
+        Set<WebSocketSession> sessions = userSessions.get(key);
         if (sessions == null || sessions.isEmpty()) {
             return;
         }
@@ -107,7 +119,7 @@ public class NotificationSocketHandler extends TextWebSocketHandler {
     }
 
     private void unregisterSession(String email, WebSocketSession session) {
-        Set<WebSocketSession> sessions = userSessions.get(email);
+        Set<WebSocketSession> sessions = userSessions.get(canonicalEmail(email));
         if (sessions == null) {
             return;
         }
@@ -122,5 +134,13 @@ public class NotificationSocketHandler extends TextWebSocketHandler {
             return null;
         }
         return UriComponentsBuilder.fromUri(uri).build().getQueryParams().getFirst("token");
+    }
+
+    /** Chuẩn hóa email làm khóa session map để tránh lệch key khi so khớp broadcast. */
+    private static String canonicalEmail(String email) {
+        if (email == null) {
+            return "";
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }
