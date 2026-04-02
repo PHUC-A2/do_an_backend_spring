@@ -12,6 +12,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,6 +29,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.backend.domain.entity.Role;
 import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
+import com.example.backend.domain.request.security.ReqResetPaymentPinWithOtpDTO;
+import com.example.backend.domain.request.security.ReqSetPaymentPinDTO;
 import com.example.backend.domain.request.auth.ReqLoginDTO;
 import com.example.backend.domain.request.auth.ReqResendOtpDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
@@ -47,6 +51,8 @@ import com.example.backend.repository.RoleRepository;
 import com.example.backend.service.AuthService;
 import com.example.backend.service.EmailService;
 import com.example.backend.service.UserService;
+import com.example.backend.service.paymentpin.PaymentConfirmationPinService;
+import com.example.backend.service.paymentpin.SecuritySettingsService;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
@@ -68,6 +74,8 @@ public class AuthController {
         private final RoleRepository roleRepository;
         private final AuthService authService;
         private final EmailService emailService;
+        private final PaymentConfirmationPinService paymentConfirmationPinService;
+        private final SecuritySettingsService securitySettingsService;
 
         @Value("${backend.jwt.refresh-token-validity-in-second}")
         private long refreshTokenExpiration;
@@ -79,7 +87,9 @@ public class AuthController {
                         PasswordEncoder passwordEncoder,
                         RoleRepository roleRepository,
                         AuthService authService,
-                        EmailService emailService) {
+                        EmailService emailService,
+                        PaymentConfirmationPinService paymentConfirmationPinService,
+                        SecuritySettingsService securitySettingsService) {
 
                 this.authenticationManagerBuilder = authenticationManagerBuilder;
                 this.securityUtil = securityUtil;
@@ -88,6 +98,8 @@ public class AuthController {
                 this.roleRepository = roleRepository;
                 this.authService = authService;
                 this.emailService = emailService;
+                this.paymentConfirmationPinService = paymentConfirmationPinService;
+                this.securitySettingsService = securitySettingsService;
         }
 
         @PostMapping("/auth/login")
@@ -212,6 +224,13 @@ public class AuthController {
                 accountUser.setNotificationSoundPreset(
                                 user.getNotificationSoundPreset() != null ? user.getNotificationSoundPreset()
                                                 : NotificationSoundPresetEnum.DEFAULT);
+
+                // Chỉ trả cờ PIN cho tài khoản có quyền xác nhận thanh toán (không áp dụng UI user VIEW).
+                if (currentAuthenticationHasAnyAuthority("ALL", "PAYMENT_UPDATE")) {
+                        accountUser.setPaymentPinConfigured(paymentConfirmationPinService.currentUserHasPaymentPin());
+                        accountUser.setPaymentConfirmationPinRequiredBySystem(
+                                        securitySettingsService.isPaymentConfirmationPinRequired());
+                }
 
                 // map roles + permissions
                 accountUser.setRoles(
@@ -476,6 +495,32 @@ public class AuthController {
                 return ResponseEntity.ok(this.userService.updateAccount(dto));
         }
 
+        @PutMapping("/auth/account/payment-pin")
+        @ApiMessage("Đặt hoặc đổi PIN xác nhận thanh toán (6 số)")
+        @PreAuthorize("hasAuthority('ALL') or hasAuthority('PAYMENT_UPDATE')")
+        public ResponseEntity<Void> setPaymentPin(@Valid @RequestBody ReqSetPaymentPinDTO dto) {
+                paymentConfirmationPinService.setOrUpdateMyPaymentPin(dto.getPin(), dto.getCurrentPin());
+                return ResponseEntity.ok().build();
+        }
+
+        @PostMapping("/auth/account/payment-pin/forgot-otp")
+        @ApiMessage("Gửi OTP email đặt lại PIN xác nhận thanh toán")
+        @PreAuthorize("hasAuthority('ALL') or hasAuthority('PAYMENT_UPDATE')")
+        public ResponseEntity<MessageResponse> requestForgotPaymentPinOtp() {
+                paymentConfirmationPinService.requestResetPaymentPinOtp();
+                return ResponseEntity.ok(new MessageResponse("OTP đã gửi về email đăng nhập của bạn"));
+        }
+
+        @PatchMapping("/auth/account/payment-pin/reset-with-otp")
+        @ApiMessage("Đặt lại PIN xác nhận thanh toán bằng OTP email")
+        @PreAuthorize("hasAuthority('ALL') or hasAuthority('PAYMENT_UPDATE')")
+        public ResponseEntity<MessageResponse> resetPaymentPinWithOtp(
+                        @Valid @RequestBody ReqResetPaymentPinWithOtpDTO dto) {
+                paymentConfirmationPinService.resetPaymentPinWithOtp(dto.getOtp(), dto.getNewPin(),
+                                dto.getConfirmPin());
+                return ResponseEntity.ok(new MessageResponse("Đã đặt lại PIN xác nhận thanh toán"));
+        }
+
         // Quên pass
         @PostMapping("/auth/forgot-password")
         @ApiMessage("Quên mật khẩu")
@@ -503,6 +548,21 @@ public class AuthController {
         public ResponseEntity<Void> testMail() {
                 this.emailService.sendOtp("phucbv.k63cntt-b@utb.edu.vn", "123456");
                 return ResponseEntity.ok(null);
+        }
+
+        private boolean currentAuthenticationHasAnyAuthority(String... names) {
+                Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+                if (auth == null || !auth.isAuthenticated()) {
+                        return false;
+                }
+                for (String name : names) {
+                        boolean hit = auth.getAuthorities().stream()
+                                        .anyMatch(a -> name.equals(a.getAuthority()));
+                        if (hit) {
+                                return true;
+                        }
+                }
+                return false;
         }
 
 }

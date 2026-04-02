@@ -40,18 +40,6 @@
     "type": "java.lang.Integer"
   },
   {
-    "name": "payment.bank.code",
-    "type": "java.lang.String"
-  },
-  {
-    "name": "payment.bank.account-no",
-    "type": "java.lang.String"
-  },
-  {
-    "name": "payment.bank.account-name",
-    "type": "java.lang.String"
-  },
-  {
     "name": "admin.email",
     "type": "java.lang.String"
   },

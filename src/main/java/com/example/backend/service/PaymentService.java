@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -18,7 +17,9 @@ import com.example.backend.domain.entity.Payment;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.payment.ResPaymentDTO;
 import com.example.backend.domain.response.payment.ResPaymentQRDTO;
+import com.example.backend.domain.response.systemconfig.ResPaymentBankInfoDTO;
 import com.example.backend.repository.PaymentRepository;
+import com.example.backend.service.paymentpin.PaymentConfirmationPinService;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.payment.PaymentMethodEnum;
 import com.example.backend.util.constant.payment.PaymentStatusEnum;
@@ -35,23 +36,20 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final BookingService bookingService;
     private final NotificationService notificationService;
-
-    @Value("${payment.bank.code}")
-    private String bankCode;
-
-    @Value("${payment.bank.account-no}")
-    private String accountNo;
-
-    @Value("${payment.bank.account-name}")
-    private String accountName;
+    private final SystemConfigService systemConfigService;
+    private final PaymentConfirmationPinService paymentConfirmationPinService;
 
     public PaymentService(
             PaymentRepository paymentRepository,
             BookingService bookingService,
-            NotificationService notificationService) {
+            NotificationService notificationService,
+            SystemConfigService systemConfigService,
+            PaymentConfirmationPinService paymentConfirmationPinService) {
         this.paymentRepository = paymentRepository;
         this.bookingService = bookingService;
         this.notificationService = notificationService;
+        this.systemConfigService = systemConfigService;
+        this.paymentConfirmationPinService = paymentConfirmationPinService;
     }
 
     public Payment createPayment(long bookingId, PaymentMethodEnum method) throws IdInvalidException {
@@ -64,6 +62,11 @@ public class PaymentService {
 
         if (booking.getStatus() == BookingStatusEnum.CANCELLED) {
             throw new BadRequestException("Booking đã bị huỷ, không thể tạo payment");
+        }
+
+        // Với chuyển khoản, bắt buộc phải có cấu hình tài khoản ngân hàng đang bật trước khi tạo payment.
+        if (method == PaymentMethodEnum.BANK_TRANSFER) {
+            systemConfigService.getActivePaymentBankInfo();
         }
 
         boolean existed = paymentRepository.existsByBooking_IdAndStatusIn(
@@ -114,18 +117,24 @@ public class PaymentService {
             throw new BadRequestException("Payment đã thanh toán");
         }
 
+        ResPaymentBankInfoDTO paymentBankInfo = systemConfigService.getActivePaymentBankInfo();
+
+        String codeToUse = paymentBankInfo.getBankCode();
+        String accountNoToUse = paymentBankInfo.getAccountNo();
+        String accountNameToUse = paymentBankInfo.getAccountName();
+
         String vietQrUrl = "https://img.vietqr.io/image/"
-                + bankCode + "-" + accountNo + "-compact.png"
+                + codeToUse + "-" + accountNoToUse + "-compact.png"
                 + "?amount=" + payment.getAmount()
                 + "&addInfo=" + URLEncoder.encode(payment.getContent(), StandardCharsets.UTF_8)
-                + "&accountName=" + URLEncoder.encode(accountName, StandardCharsets.UTF_8);
+                + "&accountName=" + URLEncoder.encode(accountNameToUse, StandardCharsets.UTF_8);
 
         return ResPaymentQRDTO.builder()
                 .paymentId(payment.getId())
                 .paymentCode(payment.getPaymentCode())
-                .bankCode(bankCode)
-                .accountNo(accountNo)
-                .accountName(accountName)
+                .bankCode(codeToUse)
+                .accountNo(accountNoToUse)
+                .accountName(accountNameToUse)
                 .amount(payment.getAmount())
                 .content(payment.getContent())
                 .vietQrUrl(vietQrUrl)
@@ -151,7 +160,9 @@ public class PaymentService {
     }
 
     @Transactional
-    public void adminConfirmPaid(long paymentId) {
+    public void adminConfirmPaid(long paymentId, String paymentConfirmationPin) {
+
+        paymentConfirmationPinService.requireValidPinIfConfigured(paymentConfirmationPin);
 
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new BadRequestException("Payment không tồn tại"));
@@ -178,6 +189,38 @@ public class PaymentService {
                 booking.getId(), pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
         notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.PAYMENT_CONFIRMED, msg);
+    }
+
+    @Transactional
+    public void adminRejectPayment(long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BadRequestException("Payment không tồn tại"));
+
+        if (payment.getStatus() == PaymentStatusEnum.PAID) {
+            throw new BadRequestException("Payment đã xác nhận thanh toán, không thể từ chối");
+        }
+
+        if (payment.getStatus() == PaymentStatusEnum.CANCELLED) {
+            return;
+        }
+
+        payment.setStatus(PaymentStatusEnum.CANCELLED);
+        payment.setPaidAt(null);
+        paymentRepository.save(payment);
+    }
+
+    @Transactional
+    public void adminDeleteBookingFromPayment(long paymentId) throws IdInvalidException {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new BadRequestException("Payment không tồn tại"));
+
+        Long bookingId = payment.getBooking() != null ? payment.getBooking().getId() : null;
+        if (bookingId == null) {
+            throw new BadRequestException("Payment không có booking liên kết");
+        }
+
+        paymentRepository.delete(payment);
+        bookingService.deleteBooking(bookingId);
     }
 
     // get all

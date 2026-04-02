@@ -65,6 +65,8 @@ public class DatabaseInitializer implements CommandLineRunner {
         ensureNotificationTypeColumnCompatible();
         ensureNotificationSoundEnabledDefaults();
         ensureNotificationSoundPresetDefaults();
+        ensureBankAccountConfigColumnsCompatible();
+        ensureSecuritySettingsTableAndUserPaymentPinColumn();
 
         // long countPermissions = permissionRepository.count();
         // 1. Tạo PERMISSION nếu chưa có
@@ -135,6 +137,28 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // AI chat
         createPermissionIfNotExists("AI_CHAT_ADMIN", "Admin sử dụng AI chat không giới hạn");
+
+        // SYSTEM CONFIG - MAIL
+        createPermissionIfNotExists("SYSTEM_CONFIG_MAIL_VIEW_LIST", "Xem danh sách cấu hình email gửi");
+        createPermissionIfNotExists("SYSTEM_CONFIG_MAIL_CREATE", "Thêm cấu hình email gửi");
+        createPermissionIfNotExists("SYSTEM_CONFIG_MAIL_UPDATE", "Cập nhật cấu hình email gửi");
+        createPermissionIfNotExists("SYSTEM_CONFIG_MAIL_DELETE", "Xóa cấu hình email gửi");
+
+        // SYSTEM CONFIG - BANK
+        createPermissionIfNotExists("SYSTEM_CONFIG_BANK_VIEW_LIST", "Xem danh sách tài khoản ngân hàng");
+        createPermissionIfNotExists("SYSTEM_CONFIG_BANK_CREATE", "Thêm tài khoản ngân hàng");
+        createPermissionIfNotExists("SYSTEM_CONFIG_BANK_UPDATE", "Cập nhật tài khoản ngân hàng");
+        createPermissionIfNotExists("SYSTEM_CONFIG_BANK_DELETE", "Xóa tài khoản ngân hàng");
+
+        // SYSTEM CONFIG - MESSENGER
+        createPermissionIfNotExists("SYSTEM_CONFIG_MESSENGER_VIEW_LIST", "Xem danh sách cấu hình messenger");
+        createPermissionIfNotExists("SYSTEM_CONFIG_MESSENGER_CREATE", "Thêm cấu hình messenger");
+        createPermissionIfNotExists("SYSTEM_CONFIG_MESSENGER_UPDATE", "Cập nhật cấu hình messenger");
+        createPermissionIfNotExists("SYSTEM_CONFIG_MESSENGER_DELETE", "Xóa cấu hình messenger");
+
+        // SYSTEM CONFIG - SECURITY (PIN xác nhận thanh toán)
+        createPermissionIfNotExists("SYSTEM_CONFIG_SECURITY_VIEW_LIST", "Xem cấu hình bảo mật bổ sung");
+        createPermissionIfNotExists("SYSTEM_CONFIG_SECURITY_UPDATE", "Cập nhật bắt buộc PIN xác nhận thanh toán");
 
         // 2. Tạo ROLES nếu chưa có
         // if (countRoles == 0) {
@@ -314,6 +338,113 @@ public class DatabaseInitializer implements CommandLineRunner {
         } catch (Exception ex) {
             // Ignore when table/column is not ready yet; app can continue bootstrap safely.
             System.out.println(">>> MIGRATION SKIPPED: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Chuẩn hóa bảng bank_account_configs sau khi đổi model:
+     * - Bỏ cột legacy: bank_type_encrypted, bank_name_encrypted
+     * - Đảm bảo có cột account_name_encrypted
+     */
+    /**
+     * Bảng singleton security_settings + cột hash PIN trên users (không lưu PIN rõ).
+     */
+    private void ensureSecuritySettingsTableAndUserPaymentPinColumn() {
+        try {
+            jdbcTemplate.execute("""
+                    CREATE TABLE IF NOT EXISTS security_settings (
+                        id BIGINT NOT NULL PRIMARY KEY,
+                        payment_confirmation_pin_required BOOLEAN NOT NULL DEFAULT FALSE
+                    )
+                    """);
+            jdbcTemplate.update(
+                    """
+                            INSERT INTO security_settings (id, payment_confirmation_pin_required)
+                            VALUES (1, FALSE)
+                            ON DUPLICATE KEY UPDATE id = id
+                            """);
+            System.out.println(">>> MIGRATION: security_settings ensured");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED security_settings: " + ex.getMessage());
+        }
+
+        try {
+            Integer col = jdbcTemplate.queryForObject(
+                    """
+                            SELECT COUNT(*)
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'users'
+                              AND COLUMN_NAME = 'payment_pin_hash'
+                            """,
+                    Integer.class);
+            if (col != null && col == 0) {
+                jdbcTemplate.execute("ALTER TABLE users ADD COLUMN payment_pin_hash VARCHAR(255) NULL");
+                System.out.println(">>> MIGRATION: users.payment_pin_hash added");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED payment_pin_hash: " + ex.getMessage());
+        }
+    }
+
+    private void ensureBankAccountConfigColumnsCompatible() {
+        try {
+            Integer accountNameCol = jdbcTemplate.queryForObject(
+                    """
+                            SELECT COUNT(*)
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'bank_account_configs'
+                              AND COLUMN_NAME = 'account_name_encrypted'
+                            """,
+                    Integer.class);
+            if (accountNameCol != null && accountNameCol == 0) {
+                jdbcTemplate.execute(
+                        "ALTER TABLE bank_account_configs ADD COLUMN account_name_encrypted VARCHAR(1000) NULL");
+                jdbcTemplate.execute(
+                        "UPDATE bank_account_configs SET account_name_encrypted = '' WHERE account_name_encrypted IS NULL");
+                jdbcTemplate.execute(
+                        "ALTER TABLE bank_account_configs MODIFY COLUMN account_name_encrypted VARCHAR(1000) NOT NULL");
+                System.out.println(">>> MIGRATION: bank_account_configs.account_name_encrypted added");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED account_name_encrypted: " + ex.getMessage());
+        }
+
+        try {
+            Integer bankTypeCol = jdbcTemplate.queryForObject(
+                    """
+                            SELECT COUNT(*)
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'bank_account_configs'
+                              AND COLUMN_NAME = 'bank_type_encrypted'
+                            """,
+                    Integer.class);
+            if (bankTypeCol != null && bankTypeCol > 0) {
+                jdbcTemplate.execute("ALTER TABLE bank_account_configs DROP COLUMN bank_type_encrypted");
+                System.out.println(">>> MIGRATION: bank_account_configs.bank_type_encrypted dropped");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED bank_type_encrypted: " + ex.getMessage());
+        }
+
+        try {
+            Integer bankNameCol = jdbcTemplate.queryForObject(
+                    """
+                            SELECT COUNT(*)
+                            FROM INFORMATION_SCHEMA.COLUMNS
+                            WHERE TABLE_SCHEMA = DATABASE()
+                              AND TABLE_NAME = 'bank_account_configs'
+                              AND COLUMN_NAME = 'bank_name_encrypted'
+                            """,
+                    Integer.class);
+            if (bankNameCol != null && bankNameCol > 0) {
+                jdbcTemplate.execute("ALTER TABLE bank_account_configs DROP COLUMN bank_name_encrypted");
+                System.out.println(">>> MIGRATION: bank_account_configs.bank_name_encrypted dropped");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED bank_name_encrypted: " + ex.getMessage());
         }
     }
 

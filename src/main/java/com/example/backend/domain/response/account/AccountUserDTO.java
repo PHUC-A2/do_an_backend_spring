@@ -23,4 +23,10 @@ public class AccountUserDTO {
     private NotificationSoundPresetEnum notificationSoundPreset;
 
     private List<ResRoleNestedDetailDTO> roles;
+
+    /** User đã lưu PIN xác nhận thanh toán hay chưa (không trả giá trị PIN). */
+    private Boolean paymentPinConfigured;
+
+    /** Hệ thống có đang bật bắt buộc PIN khi xác nhận thanh toán hay không. */
+    private Boolean paymentConfirmationPinRequiredBySystem;
 }

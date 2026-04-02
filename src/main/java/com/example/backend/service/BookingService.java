@@ -142,7 +142,8 @@ public class BookingService {
             String adminMsg = String.format(
                     "Có yêu cầu đặt sân mới cần xác nhận. Booking #%d – %s đặt sân %s lúc %s.",
                     booking.getId(), requesterName, pitchName, bookingTime);
-            notificationService.notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg);
+            // Không gửi bản "admin" cho chính người đặt nếu họ là admin — đã có createAndPush phía user ở trên
+            notificationService.notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg, user.getId());
         } else {
             String notifMsg = String.format("Đặt sân thành công! Booking #%d – %s lúc %s",
                     booking.getId(), pitchName, bookingTime);

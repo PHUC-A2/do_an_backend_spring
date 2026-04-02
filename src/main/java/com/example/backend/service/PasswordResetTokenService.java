@@ -17,6 +17,8 @@ public class PasswordResetTokenService {
 
     public static final String RESET_PASSWORD_TYPE = "RESET_PASSWORD";
     public static final String EMAIL_VERIFICATION_TYPE = "EMAIL_VERIFICATION";
+    /** OTP gửi email để đặt lại PIN xác nhận thanh toán (user đã có PIN). */
+    public static final String RESET_PAYMENT_PIN_TYPE = "RESET_PAYMENT_PIN";
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
 

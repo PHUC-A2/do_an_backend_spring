@@ -54,9 +54,19 @@ public class NotificationService {
     // Notify all active admins
     // ──────────────────────────────────────────────────────────────
 
+    /** Gửi thông báo cho mọi admin đang hoạt động (không loại trừ ai). */
     public void notifyAdmins(NotificationTypeEnum type, String message) {
+        notifyAdmins(type, message, null);
+    }
+
+    /**
+     * Gửi thông báo cho admin; có thể bỏ qua một user (vd. người vừa tạo booking đồng thời là admin)
+     * để tránh trùng bản ghi + spam WebSocket/FCM cho cùng một hành động.
+     */
+    public void notifyAdmins(NotificationTypeEnum type, String message, Long excludeUserId) {
         userRepository.findDistinctByRoles_Name("ADMIN").stream()
                 .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
+                .filter(admin -> excludeUserId == null || !excludeUserId.equals(admin.getId()))
                 .forEach(admin -> createAndPush(admin, type, message));
     }
 

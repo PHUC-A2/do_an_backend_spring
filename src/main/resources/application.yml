@@ -11,8 +11,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -46,11 +46,6 @@ server:
   port: 8080
   # Đứng sau nginx/HTTPS: nhận X-Forwarded-* để redirect/cookie đúng (một lần cấu hình server)
   forward-headers-strategy: framework
-payment:
-  bank:
-    code: ${BANK_CODE}
-    account-no: ${BANK_ACCOUNT_NO}
-    account-name: ${BANK_ACCOUNT_NAME}
 admin:
   email: ${ADMIN_EMAIL}
   name: ${ADMIN_NAME}

@@ -75,6 +75,12 @@ public class User {
     @Column(nullable = false, length = 24, columnDefinition = "VARCHAR(24) DEFAULT 'DEFAULT'")
     private NotificationSoundPresetEnum notificationSoundPreset = NotificationSoundPresetEnum.DEFAULT;
 
+    /**
+     * Hash BCrypt của PIN 6 số dùng riêng cho xác nhận thanh toán (không lưu dạng rõ).
+     */
+    @Column(name = "payment_pin_hash", length = 255)
+    private String paymentPinHash;
+
     private Instant bannedAt;
 
     @ManyToMany(fetch = FetchType.LAZY)

@@ -6,8 +6,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.io.UnsupportedEncodingException;
 import java.util.Objects;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -16,15 +15,12 @@ import org.thymeleaf.context.Context;
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
+    private final SystemConfigService systemConfigService;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
-
-    public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
-        this.mailSender = mailSender;
+    public EmailService(TemplateEngine templateEngine, SystemConfigService systemConfigService) {
         this.templateEngine = templateEngine;
+        this.systemConfigService = systemConfigService;
     }
 
     public void sendOtp(String toEmail, String otp) {
@@ -53,7 +49,20 @@ public class EmailService {
     }
 
     private void sendHtmlEmail(String toEmail, String subject, String htmlBody) {
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        var credential = systemConfigService.getActiveMailCredential();
+        JavaMailSenderImpl senderToUse = new JavaMailSenderImpl();
+        senderToUse.setHost("smtp.gmail.com");
+        senderToUse.setPort(587);
+        senderToUse.setUsername(credential.getEmail());
+        senderToUse.setPassword(credential.getPassword());
+        var props = senderToUse.getJavaMailProperties();
+        props.put("mail.transport.protocol", "smtp");
+        props.put("mail.smtp.auth", "true");
+        props.put("mail.smtp.starttls.enable", "true");
+
+        String fromEmailToUse = credential.getEmail();
+
+        MimeMessage mimeMessage = senderToUse.createMimeMessage();
 
         try {
             String safeToEmail = Objects.requireNonNull(toEmail, "toEmail must not be null");
@@ -61,12 +70,12 @@ public class EmailService {
             String safeHtmlBody = Objects.requireNonNull(htmlBody, "htmlBody must not be null");
 
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, "UTF-8");
-            helper.setFrom(fromEmail, "TBU Sport");
+            helper.setFrom(fromEmailToUse, "TBU Sport");
             helper.setTo(safeToEmail);
             helper.setSubject(safeSubject);
             helper.setText(safeHtmlBody, true);
 
-            mailSender.send(mimeMessage);
+            senderToUse.send(mimeMessage);
         } catch (MessagingException | UnsupportedEncodingException e) {
             throw new RuntimeException("Không thể gửi email OTP", e);
         }
