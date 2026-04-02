@@ -160,6 +160,10 @@ public class DatabaseInitializer implements CommandLineRunner {
         createPermissionIfNotExists("SYSTEM_CONFIG_SECURITY_VIEW_LIST", "Xem cấu hình bảo mật bổ sung");
         createPermissionIfNotExists("SYSTEM_CONFIG_SECURITY_UPDATE", "Cập nhật bắt buộc PIN xác nhận thanh toán");
 
+        // SUPPORT — trang Hỗ trợ & Bảo trì admin
+        createPermissionIfNotExists("SUPPORT_VIEW_LIST", "Xem nội dung trang hỗ trợ & bảo trì");
+        createPermissionIfNotExists("SUPPORT_MANAGE", "Thêm/sửa/xóa liên hệ, hướng dẫn sự cố, link, ghi chú bảo trì");
+
         // 2. Tạo ROLES nếu chưa có
         // if (countRoles == 0) {
         // List<Permission> allPermissions = permissionRepository.findAll();
@@ -220,6 +224,11 @@ public class DatabaseInitializer implements CommandLineRunner {
             // BOOKING: cho C-R-U, KHÔNG cho DELETE
             if (p.getName().startsWith("BOOKING_")
                     && !p.getName().equals("BOOKING_DELETE")) {
+                viewPermissions.add(p);
+            }
+
+            // SUPPORT: chỉ xem (API đọc nội dung trang hỗ trợ)
+            if (p.getName().equals("SUPPORT_VIEW_LIST")) {
                 viewPermissions.add(p);
             }
         }
