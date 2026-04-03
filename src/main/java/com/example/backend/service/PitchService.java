@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Comparator;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,17 +14,21 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Pitch;
+import com.example.backend.domain.entity.PitchHourlyPrice;
 import com.example.backend.domain.request.pitch.ReqCreatePitchDTO;
+import com.example.backend.domain.request.pitch.ReqPitchHourlyPriceDTO;
 import com.example.backend.domain.request.pitch.ReqUpdatePitchDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
 import com.example.backend.domain.response.pitch.ResCreatePitchDTO;
 import com.example.backend.domain.response.pitch.ResPitchDTO;
+import com.example.backend.domain.response.pitch.ResPitchHourlyPriceDTO;
 import com.example.backend.domain.response.pitch.ResUpdatePitchDTO;
 import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.repository.PitchRepository;
 import com.example.backend.repository.ReviewRepository;
 import com.example.backend.util.constant.review.ReviewStatusEnum;
 import com.example.backend.util.error.IdInvalidException;
+import com.example.backend.util.error.BadRequestException;
 
 @Service
 public class PitchService {
@@ -88,6 +93,7 @@ public class PitchService {
 
         Pitch pitch = this.getPitchById(id);
 
+        // Cập nhật thông tin cơ bản của sân
         pitch.setName(req.getName());
         pitch.setPitchType(req.getPitchType());
         pitch.setPricePerHour(req.getPricePerHour());
@@ -103,6 +109,12 @@ public class PitchService {
         pitch.setWidth(req.getWidth());
         pitch.setHeight(req.getHeight());
         pitch.setImageUrl(req.getImageUrl());
+
+        // Cập nhật toàn bộ khung giờ giá theo request (nếu có). Nếu request không gửi `hourlyPrices`
+        // thì giữ nguyên để tránh xóa dữ liệu cũ ngoài ý muốn.
+        if (req.getHourlyPrices() != null) {
+            applyHourlyPricesToPitch(pitch, req.getHourlyPrices());
+        }
 
         Pitch updatedPitch = this.pitchRepository.save(pitch);
 
@@ -123,6 +135,7 @@ public class PitchService {
 
         Pitch pitch = new Pitch();
 
+        // Lưu thông tin cơ bản
         pitch.setName(req.getName());
         pitch.setPitchType(req.getPitchType());
         pitch.setPricePerHour(req.getPricePerHour());
@@ -138,6 +151,9 @@ public class PitchService {
         pitch.setWidth(req.getWidth());
         pitch.setHeight(req.getHeight());
         pitch.setImageUrl(req.getImageUrl());
+
+        // Lưu lịch giá theo khung giờ (nếu có)
+        applyHourlyPricesToPitch(pitch, req.getHourlyPrices());
 
         return pitch;
     }
@@ -163,6 +179,9 @@ public class PitchService {
         res.setWidth(pitch.getWidth());
         res.setHeight(pitch.getHeight());
         res.setImageUrl(pitch.getImageUrl());
+
+        // Map lịch giá theo khung giờ để frontend có thể preview theo thời gian người dùng chọn
+        res.setHourlyPrices(convertToResHourlyPrices(pitch.getHourlyPrices()));
         res.setAverageRating(summary.averageRating());
         res.setReviewCount(summary.reviewCount());
 
@@ -193,6 +212,9 @@ public class PitchService {
         res.setWidth(pitch.getWidth());
         res.setHeight(pitch.getHeight());
         res.setImageUrl(pitch.getImageUrl());
+
+        // Map lịch giá theo khung giờ để frontend hiển thị đúng theo cấu hình
+        res.setHourlyPrices(convertToResHourlyPrices(pitch.getHourlyPrices()));
         res.setAverageRating(summary.averageRating());
         res.setReviewCount(summary.reviewCount());
 
@@ -228,6 +250,9 @@ public class PitchService {
         res.setWidth(pitch.getWidth());
         res.setHeight(pitch.getHeight());
         res.setImageUrl(pitch.getImageUrl());
+
+        // Map lịch giá theo khung giờ cho client hiển thị & tính preview giá
+        res.setHourlyPrices(convertToResHourlyPrices(pitch.getHourlyPrices()));
         res.setAverageRating(summary.averageRating());
         res.setReviewCount(summary.reviewCount());
 
@@ -272,6 +297,124 @@ public class PitchService {
 
     private double roundToOneDecimal(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    // ====================== Hourly price mapping ======================
+
+    private List<PitchHourlyPrice> convertToReqHourlyPrices(List<ReqPitchHourlyPriceDTO> hourlyPrices, Pitch pitch) {
+        // Nếu không truyền khung giờ giá thì để rỗng (giá cố định dùng `pricePerHour`)
+        if (hourlyPrices == null || hourlyPrices.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // Validate trước khi chuyển sang entity để tránh dữ liệu chồng lấn
+        validateHourlyPrices(hourlyPrices);
+
+        List<PitchHourlyPrice> result = new ArrayList<>();
+        for (ReqPitchHourlyPriceDTO dto : hourlyPrices) {
+            PitchHourlyPrice e = new PitchHourlyPrice();
+            e.setPitch(pitch);
+            e.setStartTime(dto.getStartTime());
+            e.setEndTime(dto.getEndTime());
+            e.setPricePerHour(dto.getPricePerHour());
+            result.add(e);
+        }
+        return result;
+    }
+
+    /**
+     * Với orphanRemoval=true, tuyệt đối không replace reference của collection.
+     * Luôn mutate trên cùng instance list để Hibernate quản lý orphan đúng cách.
+     */
+    private void applyHourlyPricesToPitch(Pitch pitch, List<ReqPitchHourlyPriceDTO> hourlyPrices) {
+        if (pitch == null) {
+            return;
+        }
+
+        List<PitchHourlyPrice> target = pitch.getHourlyPrices();
+        if (target == null) {
+            target = new ArrayList<>();
+            pitch.setHourlyPrices(target);
+        }
+
+        List<PitchHourlyPrice> newItems = convertToReqHourlyPrices(hourlyPrices, pitch);
+        target.clear();
+        target.addAll(newItems);
+    }
+
+    private List<ResPitchHourlyPriceDTO> convertToResHourlyPrices(List<PitchHourlyPrice> hourlyPrices) {
+        if (hourlyPrices == null || hourlyPrices.isEmpty()) {
+            return List.of();
+        }
+
+        List<ResPitchHourlyPriceDTO> res = new ArrayList<>();
+        for (PitchHourlyPrice e : hourlyPrices) {
+            res.add(new ResPitchHourlyPriceDTO(e.getStartTime(), e.getEndTime(), e.getPricePerHour()));
+        }
+        // Sắp xếp theo giờ bắt đầu để hiển thị ổn định
+        res.sort(Comparator.comparing(ResPitchHourlyPriceDTO::getStartTime));
+        return res;
+    }
+
+    private void validateHourlyPrices(List<ReqPitchHourlyPriceDTO> hourlyPrices) {
+        if (hourlyPrices == null || hourlyPrices.isEmpty()) {
+            return;
+        }
+
+        // Chuẩn hóa khung giờ thành các interval không vượt qua mốc 00:00 (tách nếu qua nửa đêm)
+        class Interval {
+            final int startMinute;
+            final int endMinute;
+
+            Interval(int startMinute, int endMinute) {
+                this.startMinute = startMinute;
+                this.endMinute = endMinute;
+            }
+        }
+
+        List<Interval> intervals = new ArrayList<>();
+        for (ReqPitchHourlyPriceDTO dto : hourlyPrices) {
+            LocalTimeValidator.ensureNotNull(dto.getStartTime(), dto.getEndTime());
+
+            int startMin = toMinute(dto.getStartTime());
+            int endMin = toMinute(dto.getEndTime());
+
+            // start == end không tạo thành khoảng thời gian hợp lệ
+            if (startMin == endMin) {
+                throw new BadRequestException("Khung giờ giá không hợp lệ: giờ bắt đầu và giờ kết thúc không được trùng nhau");
+            }
+
+            if (startMin < endMin) {
+                intervals.add(new Interval(startMin, endMin));
+            } else {
+                // Tách khung qua nửa đêm thành 2 phần: [start, 24h) và [0, end)
+                intervals.add(new Interval(startMin, 24 * 60));
+                intervals.add(new Interval(0, endMin));
+            }
+        }
+
+        // Sort theo start và kiểm tra chồng lấn (end-exclusive -> overlap nếu next.start < prev.end)
+        intervals.sort(Comparator.comparingInt(i -> i.startMinute));
+        for (int i = 1; i < intervals.size(); i++) {
+            Interval prev = intervals.get(i - 1);
+            Interval cur = intervals.get(i);
+            if (cur.startMinute < prev.endMinute) {
+                throw new BadRequestException("Khung giờ giá bị chồng lấn nhau. Vui lòng chỉnh lại để không trùng/đè.");
+            }
+        }
+    }
+
+    private int toMinute(java.time.LocalTime t) {
+        return t.getHour() * 60 + t.getMinute();
+    }
+
+    // Validator nhỏ để giảm boilerplate null-check thời gian
+    private static final class LocalTimeValidator {
+        private static void ensureNotNull(Object start, Object end) {
+            if (start == null || end == null) {
+                throw new BadRequestException("Khung giờ giá không được để trống giờ bắt đầu/kết thúc");
+            }
+        }
     }
 
     private record PitchRatingSummary(Double averageRating, Long reviewCount) {

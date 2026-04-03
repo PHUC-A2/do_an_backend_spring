@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Booking;
 import com.example.backend.domain.entity.Pitch;
+import com.example.backend.domain.entity.PitchHourlyPrice;
 import com.example.backend.domain.entity.User;
 import com.example.backend.domain.request.booking.ReqCreateBookingDTO;
 import com.example.backend.domain.request.booking.ReqUpdateBookingDTO;
@@ -100,14 +102,14 @@ public class BookingService {
                 req.getStartDateTime(),
                 req.getEndDateTime());
 
-        // 8. Lấy giá sân và Validate
-        BigDecimal pricePerHour = pitch.getPricePerHour();
-        if (pricePerHour == null || pricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+        // 8. Lấy giá mặc định của sân và Validate (giá fallback khi không nằm trong khung giờ giá)
+        BigDecimal basePricePerHour = pitch.getPricePerHour();
+        if (basePricePerHour == null || basePricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestException("Giá sân không hợp lệ");
         }
 
-        // 9. Tính tổng tiền
-        BigDecimal totalPrice = calculateTotalPrice(pricePerHour, durationMinutes);
+        // 9. Tính tổng tiền theo khung giờ giá (nếu có) — vẫn giữ logic tỉ lệ theo phút
+        BigDecimal totalPrice = calculateTotalPrice(pitch, req.getStartDateTime(), req.getEndDateTime(), durationMinutes);
 
         // 10. Resolve contactPhone
         String contactPhone = this.resolveContactPhone(user, req.getContactPhone());
@@ -297,13 +299,13 @@ public class BookingService {
         // 6. Tính lại duration
         long durationMinutes = calculateDurationMinutes(start, end);
 
-        // 7. Tính lại giá
-        BigDecimal pricePerHour = pitch.getPricePerHour();
-        if (pricePerHour == null || pricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+        // 7. Tính lại giá theo khung giờ (nếu có)
+        BigDecimal basePricePerHour = pitch.getPricePerHour();
+        if (basePricePerHour == null || basePricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BadRequestException("Giá sân không hợp lệ");
         }
 
-        BigDecimal totalPrice = calculateTotalPrice(pricePerHour, durationMinutes);
+        BigDecimal totalPrice = calculateTotalPrice(pitch, start, end, durationMinutes);
 
         // 8. Update fields
         booking.setStartDateTime(start);
@@ -538,6 +540,93 @@ public class BookingService {
         return pricePerHour
                 .multiply(BigDecimal.valueOf(durationMinutes))
                 .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+    }
+
+    // ========================= Hourly pricing =========================
+
+    private BigDecimal calculateTotalPrice(
+            @NonNull Pitch pitch,
+            @NonNull LocalDateTime start,
+            @NonNull LocalDateTime end,
+            long durationMinutes) {
+
+        // Bảo đảm giá mặc định luôn hợp lệ (đã validate ở caller nhưng phòng thủ thêm)
+        BigDecimal basePricePerHour = pitch.getPricePerHour();
+        if (basePricePerHour == null || basePricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Giá sân không hợp lệ");
+        }
+
+        // Tính tổng tiền theo giá fallback (giữ đúng pattern v1)
+        BigDecimal total = calculateTotalPrice(basePricePerHour, durationMinutes);
+
+        List<PitchHourlyPrice> rules = pitch.getHourlyPrices();
+        if (rules == null || rules.isEmpty()) {
+            return total;
+        }
+
+        // Đếm số phút mà booking rơi vào từng khung giá
+        long[] minutesByRuleIndex = new long[rules.size()];
+
+        for (long i = 0; i < durationMinutes; i++) {
+            LocalDateTime t = start.plusMinutes(i);
+            LocalTime tod = t.toLocalTime();
+            int matchedIndex = resolveMatchedHourlyPriceIndex(rules, tod);
+            if (matchedIndex >= 0) {
+                minutesByRuleIndex[matchedIndex]++;
+            }
+        }
+
+        // Cộng phần chênh lệch: (giá rule - giá base) * số phút rule / 60
+        for (int idx = 0; idx < rules.size(); idx++) {
+            long ruleMinutes = minutesByRuleIndex[idx];
+            if (ruleMinutes <= 0) continue;
+
+            PitchHourlyPrice rule = rules.get(idx);
+            BigDecimal rulePricePerHour = rule.getPricePerHour();
+            if (rulePricePerHour == null || rulePricePerHour.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new BadRequestException("Giá theo khung giờ không hợp lệ");
+            }
+
+            BigDecimal deltaPerHour = rulePricePerHour.subtract(basePricePerHour);
+            BigDecimal delta = deltaPerHour
+                    .multiply(BigDecimal.valueOf(ruleMinutes))
+                    .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+
+            total = total.add(delta);
+        }
+
+        return total;
+    }
+
+    // Trả về index rule khớp theo thời gian trong ngày (tính end-exclusive), ưu tiên rule theo thứ tự lưu
+    private int resolveMatchedHourlyPriceIndex(List<PitchHourlyPrice> rules, LocalTime tod) {
+        if (rules == null || rules.isEmpty()) return -1;
+
+        for (int idx = 0; idx < rules.size(); idx++) {
+            PitchHourlyPrice rule = rules.get(idx);
+            LocalTime startTime = rule.getStartTime();
+            LocalTime endTime = rule.getEndTime();
+            if (startTime == null || endTime == null) continue;
+            if (isTimeInRule(tod, startTime, endTime)) return idx;
+        }
+        return -1;
+    }
+
+    // start <= tod < end (nếu start < end); hoặc tod >= start || tod < end (nếu start > end)
+    private boolean isTimeInRule(LocalTime tod, LocalTime startTime, LocalTime endTime) {
+        if (tod == null || startTime == null || endTime == null) return false;
+
+        if (startTime.equals(endTime)) {
+            return false; // khung 0 phút không hợp lệ
+        }
+
+        if (startTime.isBefore(endTime)) {
+            // Không qua nửa đêm: [start, end)
+            return (tod.equals(startTime) || tod.isAfter(startTime)) && tod.isBefore(endTime);
+        }
+
+        // Qua nửa đêm: [start, 24h) U [00:00, end)
+        return !tod.isBefore(startTime) || tod.isBefore(endTime);
     }
 
     @Transactional

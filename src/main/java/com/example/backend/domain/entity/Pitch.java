@@ -12,6 +12,7 @@ import com.example.backend.util.constant.pitch.PitchTypeEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -80,6 +81,14 @@ public class Pitch {
     @OneToMany(mappedBy = "pitch", fetch = FetchType.LAZY)
     @JsonIgnore
     private List<Booking> bookings = new ArrayList<>();
+
+    // Giá theo khung giờ (áp dụng theo giờ trong ngày, lặp lại mỗi ngày)
+    @OneToMany(
+            mappedBy = "pitch",
+            fetch = FetchType.EAGER,
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
+    private List<PitchHourlyPrice> hourlyPrices = new ArrayList<>();
 
     private Instant createdAt;
     private Instant updatedAt;

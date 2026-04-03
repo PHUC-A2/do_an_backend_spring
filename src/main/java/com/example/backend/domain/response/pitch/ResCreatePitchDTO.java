@@ -3,6 +3,7 @@ package com.example.backend.domain.response.pitch;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalTime;
+import java.util.List;
 
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
 import com.example.backend.util.constant.pitch.PitchTypeEnum;
@@ -30,6 +31,8 @@ public class ResCreatePitchDTO {
     private Double width;
     private Double height;
     private String imageUrl;
+    // Danh sách khung giờ áp dụng giá khác nhau theo ngày (nếu có)
+    private List<ResPitchHourlyPriceDTO> hourlyPrices;
     private Double averageRating;
     private Long reviewCount;
     private Instant createdAt;

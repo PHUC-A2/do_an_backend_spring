@@ -2,10 +2,12 @@ package com.example.backend.domain.request.pitch;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.List;
 
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
 import com.example.backend.util.constant.pitch.PitchTypeEnum;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -29,6 +31,10 @@ public class ReqUpdatePitchDTO {
     @NotNull(message = "Giá theo giờ không được để trống")
     @DecimalMin(value = "0.0", inclusive = false, message = "Giá phải lớn hơn 0")
     private BigDecimal pricePerHour;
+
+    // Danh sách khung giá theo giờ (tùy chỉnh linh hoạt). Nếu không truyền thì giữ logic theo `pricePerHour` cố định.
+    @Valid
+    private List<ReqPitchHourlyPriceDTO> hourlyPrices;
 
     private String pitchUrl;
 
