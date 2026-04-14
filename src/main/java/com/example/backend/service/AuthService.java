@@ -126,4 +126,25 @@ public class AuthService {
 
         sendEmailVerificationOtp(user.getId(), user.getEmail());
     }
+
+    public User resendVerificationOtpByEmail(String email) {
+        User user = userRepository.findByEmail(email);
+
+        if (user == null || user.getStatus() != UserStatusEnum.PENDING_VERIFICATION) {
+            throw new BadRequestException("Không tìm thấy tài khoản chưa xác thực với email này");
+        }
+
+        long remainSeconds = passwordResetTokenService.getRemainingCooldownSeconds(
+                user.getId(),
+                email,
+                PasswordResetTokenService.EMAIL_VERIFICATION_TYPE,
+                60);
+
+        if (remainSeconds > 0) {
+            throw new BadRequestException("Vui lòng thử lại sau " + remainSeconds + " giây");
+        }
+
+        sendEmailVerificationOtp(user.getId(), user.getEmail());
+        return user;
+    }
 }

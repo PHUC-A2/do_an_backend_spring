@@ -32,6 +32,7 @@ import com.example.backend.domain.request.account.ReqUpdateAccountDTO;
 import com.example.backend.domain.request.security.ReqResetPaymentPinWithOtpDTO;
 import com.example.backend.domain.request.security.ReqSetPaymentPinDTO;
 import com.example.backend.domain.request.auth.ReqLoginDTO;
+import com.example.backend.domain.request.auth.ReqResendOtpByEmailDTO;
 import com.example.backend.domain.request.auth.ReqResendOtpDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
 import com.example.backend.domain.request.auth.ReqVerifyEmailDTO;
@@ -225,7 +226,8 @@ public class AuthController {
                                 user.getNotificationSoundPreset() != null ? user.getNotificationSoundPreset()
                                                 : NotificationSoundPresetEnum.DEFAULT);
 
-                // Chỉ trả cờ PIN cho tài khoản có quyền xác nhận thanh toán (không áp dụng UI user VIEW).
+                // Chỉ trả cờ PIN cho tài khoản có quyền xác nhận thanh toán (không áp dụng UI
+                // user VIEW).
                 if (currentAuthenticationHasAnyAuthority("ALL", "PAYMENT_UPDATE")) {
                         accountUser.setPaymentPinConfigured(paymentConfirmationPinService.currentUserHasPaymentPin());
                         accountUser.setPaymentConfirmationPinRequiredBySystem(
@@ -487,6 +489,16 @@ public class AuthController {
         public ResponseEntity<MessageResponse> resendOtp(@Valid @RequestBody ReqResendOtpDTO request) {
                 authService.resendVerificationOtp(request.getUserId(), request.getEmail());
                 return ResponseEntity.ok(new MessageResponse("Đã gửi lại OTP xác thực email"));
+        }
+
+        @PostMapping("/auth/resend-otp-by-email")
+        @ApiMessage("Gửi lại OTP xác thực email theo email")
+        public ResponseEntity<MessageResponse> resendOtpByEmail(
+                        @Valid @RequestBody ReqResendOtpByEmailDTO request) {
+                User user = authService.resendVerificationOtpByEmail(request.getEmail());
+                return ResponseEntity.ok(new MessageResponse(Map.of(
+                                "userId", user.getId(),
+                                "email", user.getEmail())));
         }
 
         @PatchMapping("/auth/account/me")
