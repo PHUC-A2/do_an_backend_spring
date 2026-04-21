@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -69,12 +70,23 @@ public class PaymentService {
             systemConfigService.getActivePaymentBankInfo();
         }
 
-        boolean existed = paymentRepository.existsByBooking_IdAndStatusIn(
-                bookingId,
-                List.of(PaymentStatusEnum.PENDING, PaymentStatusEnum.PAID));
+        // Nếu đã PAID → không cho tạo lại
+        if (paymentRepository.existsByBooking_IdAndStatusIn(
+                bookingId, List.of(PaymentStatusEnum.PAID))) {
+            throw new BadRequestException("Booking đã được thanh toán");
+        }
 
-        if (existed) {
-            throw new BadRequestException("Booking đã có payment");
+        // Nếu đang có PENDING → trả lại payment cũ (idempotent) thay vì báo lỗi
+        Optional<Payment> existingOpt = paymentRepository
+                .findByBooking_IdAndStatus(bookingId, PaymentStatusEnum.PENDING);
+        if (existingOpt.isPresent()) {
+            Payment existing = existingOpt.get();
+            if (existing.getMethod() == method) {
+                return existing; // Cùng phương thức → trả lại payment cũ
+            }
+            // Khác phương thức → thông báo rõ ràng
+            throw new BadRequestException(
+                    "Đã có yêu cầu thanh toán đang chờ xử lý. Vui lòng hoàn tất hoặc liên hệ admin để hủy.");
         }
 
         // Status mặc định = PENDING (đã set trong entity)
@@ -143,6 +155,28 @@ public class PaymentService {
 
     private String generatePaymentCode() {
         return "PAY_" + Instant.now().toEpochMilli() + "_" + (int) (Math.random() * 1000);
+    }
+
+    /**
+     * Lấy QR của payment PENDING theo bookingId — dùng khi user tải lại trang/app.
+     * Trả về Optional.empty() nếu không có payment PENDING hoặc là CASH.
+     */
+    public Optional<ResPaymentQRDTO> getPendingQRByBookingId(long bookingId, String email)
+            throws IdInvalidException {
+        Booking booking = bookingService.getBookingById(bookingId);
+
+        if (!email.equals(booking.getCreatedBy())) {
+            throw new BadRequestException("Bạn không có quyền xem payment này");
+        }
+
+        Optional<Payment> paymentOpt = paymentRepository
+                .findByBooking_IdAndStatus(bookingId, PaymentStatusEnum.PENDING);
+
+        if (paymentOpt.isEmpty() || paymentOpt.get().getMethod() == PaymentMethodEnum.CASH) {
+            return Optional.empty();
+        }
+
+        return Optional.of(buildQR(paymentOpt.get()));
     }
 
     public Payment getByCodeForUser(String paymentCode, String email) {

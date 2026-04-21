@@ -25,6 +25,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
             Long bookingId,
             Collection<PaymentStatusEnum> statuses);
 
+    // Lấy payment theo bookingId + status (để phục hồi QR khi tải lại)
+    Optional<Payment> findByBooking_IdAndStatus(Long bookingId, PaymentStatusEnum status);
+
      // ===== Tổng doanh thu theo khoảng thời gian =====
     @Query("""
         SELECT COALESCE(SUM(p.amount), 0)

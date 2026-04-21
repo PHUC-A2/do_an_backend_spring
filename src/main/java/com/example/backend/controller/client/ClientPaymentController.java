@@ -1,5 +1,7 @@
 package com.example.backend.controller.client;
 
+import java.util.Optional;
+
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -41,6 +43,23 @@ public class ClientPaymentController {
 
         ResPaymentQRDTO res = paymentService.buildQR(payment);
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
+    }
+
+    /**
+     * Lấy QR của payment PENDING theo bookingId.
+     * Dùng khi user tải lại trang / mở lại app mà chưa thanh toán xong.
+     * Trả data = null nếu chưa có payment PENDING hoặc là CASH.
+     */
+    @GetMapping("/payments/booking/{bookingId}")
+    @ApiMessage("Lấy payment đang chờ của booking")
+    public ResponseEntity<ResPaymentQRDTO> getPendingByBookingId(
+            @PathVariable long bookingId) throws IdInvalidException {
+
+        String email = SecurityUtil.getCurrentUserLogin()
+                .orElseThrow(() -> new BadRequestException("Không tìm thấy user login"));
+
+        Optional<ResPaymentQRDTO> qr = paymentService.getPendingQRByBookingId(bookingId, email);
+        return ResponseEntity.ok(qr.orElse(null));
     }
 
     /**
