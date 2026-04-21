@@ -41,4 +41,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long>, JpaSpecif
             @Param("status") ReviewStatusEnum status);
 
     long countByStatus(ReviewStatusEnum status);
+
+    @EntityGraph(attributePaths = { "user", "pitch" })
+    List<Review> findByPitch_IdAndStatusOrderByCreatedAtDesc(Long pitchId, ReviewStatusEnum status);
 }

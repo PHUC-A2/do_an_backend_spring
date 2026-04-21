@@ -44,6 +44,13 @@ public class ClientReviewController {
         return ResponseEntity.ok(reviewService.getMyReviews());
     }
 
+    @GetMapping("/pitch/{pitchId}/approved")
+    @ApiMessage("Lấy đánh giá đã duyệt của sân")
+    public ResponseEntity<List<ResReviewDTO>> getApprovedReviewsForPitch(@PathVariable("pitchId") Long pitchId)
+            throws IdInvalidException {
+        return ResponseEntity.ok(reviewService.getPublicApprovedReviewsForPitch(pitchId));
+    }
+
     @GetMapping("/{reviewId}/messages")
     @ApiMessage("Lấy chat trong đánh giá")
     public ResponseEntity<List<ResReviewMessageDTO>> getMessages(@PathVariable("reviewId") Long reviewId)

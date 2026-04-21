@@ -1,6 +1,7 @@
 package com.example.backend.websocket;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -109,7 +110,29 @@ public class NotificationSocketHandler extends TextWebSocketHandler {
         }
         sessions.removeAll(closed);
         if (sessions.isEmpty()) {
-            userSessions.remove(email);
+            userSessions.remove(key);
+        }
+    }
+
+    /** Thông báo nhẹ qua kênh /ws/notifications để client refetch danh sách đánh giá sân. */
+    public void broadcastPitchReviewsUpdated(long pitchId) {
+        try {
+            Map<String, Object> data = Map.of("pitchId", pitchId);
+            String json = objectMapper.writeValueAsString(Map.of("event", "pitch_reviews_updated", "data", data));
+            TextMessage message = new TextMessage(json);
+            for (Set<WebSocketSession> sessions : userSessions.values()) {
+                for (WebSocketSession ws : new ArrayList<>(sessions)) {
+                    try {
+                        if (ws.isOpen()) {
+                            ws.sendMessage(message);
+                        }
+                    } catch (Exception ignored) {
+                        // ignore per-session errors
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // ignore broadcast failure
         }
     }
 

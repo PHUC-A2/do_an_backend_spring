@@ -102,6 +102,18 @@ public class ReviewService {
     }
 
     @Transactional(readOnly = true)
+    public List<ResReviewDTO> getPublicApprovedReviewsForPitch(@NonNull Long pitchId) throws IdInvalidException {
+        if (!pitchRepository.existsById(pitchId)) {
+            throw new IdInvalidException("Không tìm thấy sân với ID = " + pitchId);
+        }
+        return reviewRepository
+                .findByPitch_IdAndStatusOrderByCreatedAtDesc(pitchId, ReviewStatusEnum.APPROVED)
+                .stream()
+                .map(this::toResReviewDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public ResultPaginationDTO getAllReviews(Specification<Review> spec, Pageable pageable) {
         Page<Review> pageReview = reviewRepository.findAll(spec, pageable);
         ResultPaginationDTO rs = new ResultPaginationDTO();
@@ -126,7 +138,15 @@ public class ReviewService {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new IdInvalidException("Không tìm thấy đánh giá với ID = " + reviewId));
         review.setStatus(req.getStatus());
-        return toResReviewDTO(reviewRepository.save(review));
+        ResReviewDTO dto = toResReviewDTO(reviewRepository.save(review));
+        if (review.getPitch() != null) {
+            try {
+                notificationSocketHandler.broadcastPitchReviewsUpdated(review.getPitch().getId());
+            } catch (Exception ex) {
+                log.warn("[review] broadcast cập nhật đánh giá sân thất bại: {}", ex.getMessage());
+            }
+        }
+        return dto;
     }
 
     @Transactional
