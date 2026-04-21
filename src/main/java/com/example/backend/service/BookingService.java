@@ -16,6 +16,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Booking;
+import com.example.backend.domain.entity.BookingEquipment;
 import com.example.backend.domain.entity.Pitch;
 import com.example.backend.domain.entity.PitchHourlyPrice;
 import com.example.backend.domain.entity.User;
@@ -25,8 +26,10 @@ import com.example.backend.domain.response.booking.ResBookingDTO;
 import com.example.backend.domain.response.booking.ResCreateBookingDTO;
 import com.example.backend.domain.response.booking.ResUpdateBookingDTO;
 import com.example.backend.domain.response.common.ResultPaginationDTO;
+import com.example.backend.repository.BookingEquipmentRepository;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.util.SecurityUtil;
+import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
@@ -39,6 +42,7 @@ import jakarta.transaction.Transactional;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final BookingEquipmentRepository bookingEquipmentRepository;
     private final UserService userService;
     private final PitchService pitchService;
     private final NotificationService notificationService;
@@ -47,10 +51,12 @@ public class BookingService {
             BookingStatusEnum.ACTIVE,
             BookingStatusEnum.PAID);
 
-    public BookingService(BookingRepository bookingRepository, UserService userService,
+    public BookingService(BookingRepository bookingRepository, BookingEquipmentRepository bookingEquipmentRepository,
+            UserService userService,
             PitchService pitchService,
             NotificationService notificationService) {
         this.bookingRepository = bookingRepository;
+        this.bookingEquipmentRepository = bookingEquipmentRepository;
         this.userService = userService;
         this.pitchService = pitchService;
         this.notificationService = notificationService;
@@ -444,17 +450,21 @@ public class BookingService {
     }
 
     // ==========Client=========
-    // Lấy booking chỉ của user
-    public Booking getBookingByIdForUser(@NonNull Long id, String email) throws IdInvalidException {
+    public Booking getBookingByIdForUserIncludingDeleted(@NonNull Long id, String email) throws IdInvalidException {
         User user = userService.handleGetUserByUsername(email);
         Booking booking = getBookingById(id);
 
-        if (booking.getDeletedByUser()) {
-            throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
-        }
-
         if (!booking.getUser().getId().equals(user.getId())) {
             throw new BadRequestException("Không có quyền truy cập booking này");
+        }
+        return booking;
+    }
+
+    // Lấy booking chỉ của user
+    public Booking getBookingByIdForUser(@NonNull Long id, String email) throws IdInvalidException {
+        Booking booking = getBookingByIdForUserIncludingDeleted(id, email);
+        if (booking.getDeletedByUser()) {
+            throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
         }
         return booking;
     }
@@ -531,6 +541,8 @@ public class BookingService {
             throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
         }
 
+        ensureBookingEquipmentsReturnedBeforeUserDelete(booking);
+
         // if (booking.getStatus() != BookingStatusEnum.CANCELLED) {
         // throw new BadRequestException("Vui lòng hủy booking trước khi xóa khỏi lịch
         // sử");
@@ -538,6 +550,17 @@ public class BookingService {
 
         booking.setDeletedByUser(true);
         bookingRepository.save(booking);
+    }
+
+    private void ensureBookingEquipmentsReturnedBeforeUserDelete(Booking booking) {
+        List<BookingEquipment> bookingEquipments = bookingEquipmentRepository.findByBookingId(booking.getId());
+        boolean hasBorrowedEquipment = bookingEquipments.stream()
+                .anyMatch(line -> !line.isDeletedByClient()
+                        && line.getStatus() == BookingEquipmentStatusEnum.BORROWED);
+
+        if (hasBorrowedEquipment) {
+            throw new BadRequestException("Vui lòng trả hết thiết bị mượn trước khi xóa khỏi lịch sử");
+        }
     }
 
     // Get all bookings của user

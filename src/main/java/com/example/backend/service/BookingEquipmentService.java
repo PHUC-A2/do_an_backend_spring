@@ -251,7 +251,7 @@ public class BookingEquipmentService {
     }
 
     /**
-     * Kiểm đếm chi tiết: trả tốt / mất / hỏng phải cộng đủ bằng SL mượn; có mất hoặc hỏng thì bắt buộc ký tên.
+     * Kiểm đếm chi tiết: trả tốt / mất / hỏng phải cộng đủ bằng SL mượn.
      */
     private BookingEquipmentStatusEnum applyReturnBreakdown(
             BookingEquipment be, Equipment equipment, ReqUpdateBookingEquipmentStatusDTO req) {
@@ -266,13 +266,6 @@ public class BookingEquipmentService {
             throw new BadRequestException(
                     String.format("Tổng trả tốt + mất + hỏng (%d) phải bằng số lượng mượn (%d).", g + l + d, q));
         }
-        if (l + d > 0) {
-            if (!StringUtils.hasText(req.getBorrowerSignName()) || !StringUtils.hasText(req.getStaffSignName())) {
-                throw new BadRequestException(
-                        "Vui lòng ghi họ tên người mượn và nhân viên ký xác nhận khi có mất hoặc hỏng.");
-            }
-        }
-
         long unit = equipment.getPrice() != null ? equipment.getPrice().longValue() : 0L;
         be.setPenaltyAmount((long) l * unit);
 

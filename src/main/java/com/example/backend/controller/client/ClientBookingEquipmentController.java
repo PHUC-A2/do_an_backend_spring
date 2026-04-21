@@ -77,7 +77,7 @@ public class ClientBookingEquipmentController {
         if (be == null) {
             throw new IdInvalidException("Không tìm thấy bản ghi mượn thiết bị");
         }
-        bookingService.getBookingByIdForUser(be.getBooking().getId(), email);
+        bookingService.getBookingByIdForUserIncludingDeleted(be.getBooking().getId(), email);
 
         return ResponseEntity.ok(bookingEquipmentService.updateStatusByClient(id, req));
     }
