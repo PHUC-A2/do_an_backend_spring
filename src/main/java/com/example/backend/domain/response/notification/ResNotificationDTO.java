@@ -22,6 +22,7 @@ public class ResNotificationDTO {
     private Long senderId;
     private String senderName;
     private String senderAvatarUrl;
+    private Long referenceId;
     @JsonProperty("isRead")
     private boolean isRead;
     @JsonProperty("deletedByUser")

@@ -107,7 +107,7 @@ public class PaymentService {
         String adminMsg = String.format(
                 "Kh\u00e1ch h\u00e0ng %s v\u1eeba t\u1ea1o y\u00eau c\u1ea7u thanh to\u00e1n QR cho Booking #%d \u2013 s\u00e2n %s. S\u1ed1 ti\u1ec1n: %s VN\u0110.",
                 userName, booking.getId(), pitchName, booking.getTotalPrice().toPlainString());
-        notificationService.notifyAdmins(NotificationTypeEnum.PAYMENT_REQUESTED, adminMsg);
+        notificationService.notifyAdmins(NotificationTypeEnum.PAYMENT_REQUESTED, adminMsg, null, booking.getId());
 
         return payment;
     }
@@ -222,7 +222,7 @@ public class PaymentService {
         String msg = String.format("Thanh toán xác nhận! Booking #%d – %s lúc %s đã được thanh toán.",
                 booking.getId(), pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
-        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.PAYMENT_CONFIRMED, msg);
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.PAYMENT_CONFIRMED, msg, booking.getId());
     }
 
     @Transactional
@@ -344,7 +344,7 @@ public class PaymentService {
         String proofMsg = String.format(
                 "Kh\u00e1ch h\u00e0ng %s \u0111\u00e3 t\u1ea3i l\u00ean \u1ea3nh x\u00e1c nh\u1eadn thanh to\u00e1n cho Booking #%d \u2013 s\u00e2n %s. Vui l\u00f2ng ki\u1ec3m tra.",
                 userName, booking.getId(), pitchName);
-        notificationService.notifyAdmins(NotificationTypeEnum.PAYMENT_PROOF_UPLOADED, proofMsg);
+        notificationService.notifyAdmins(NotificationTypeEnum.PAYMENT_PROOF_UPLOADED, proofMsg, null, booking.getId());
     }
 
 }

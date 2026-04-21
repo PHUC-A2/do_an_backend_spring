@@ -136,7 +136,7 @@ public class BookingService {
             String userMsg = String.format(
                     "Yêu cầu đặt sân đã được gửi! Booking #%d – %s lúc %s đang chờ admin xác nhận.",
                     booking.getId(), pitchName, bookingTime);
-            notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, userMsg);
+            notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, userMsg, booking.getId());
 
             String requesterName = user.getFullName() != null && !user.getFullName().isBlank()
                     ? user.getFullName()
@@ -145,11 +145,11 @@ public class BookingService {
                     "Có yêu cầu đặt sân mới cần xác nhận. Booking #%d – %s đặt sân %s lúc %s.",
                     booking.getId(), requesterName, pitchName, bookingTime);
             // Không gửi bản "admin" cho chính người đặt nếu họ là admin — đã có createAndPush phía user ở trên
-            notificationService.notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg, user.getId());
+            notificationService.notifyAdmins(NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION, adminMsg, user.getId(), booking.getId());
         } else {
             String notifMsg = String.format("Đặt sân thành công! Booking #%d – %s lúc %s",
                     booking.getId(), pitchName, bookingTime);
-            notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_CREATED, notifMsg);
+            notificationService.createAndPush(user, NotificationTypeEnum.BOOKING_CREATED, notifMsg, booking.getId());
         }
 
         // 13. Trả response
@@ -655,7 +655,7 @@ public class BookingService {
                 booking.getId(),
                 pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
-        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg);
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg, booking.getId());
     }
 
     @Transactional
@@ -706,7 +706,7 @@ public class BookingService {
                 booking.getId(),
                 pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
-        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_APPROVED, msg);
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_APPROVED, msg, booking.getId());
 
         // Thông báo rõ lý do cho các user bị từ chối do trùng giờ với booking vừa được duyệt.
         for (Booking pending : overlappingPending) {
@@ -716,7 +716,7 @@ public class BookingService {
                     pitchName,
                     pending.getStartDateTime().toString().replace("T", " ").substring(0, 16),
                     booking.getId());
-            notificationService.createAndPush(pending.getUser(), NotificationTypeEnum.BOOKING_REJECTED, rejectMsg);
+            notificationService.createAndPush(pending.getUser(), NotificationTypeEnum.BOOKING_REJECTED, rejectMsg, pending.getId());
         }
     }
 
@@ -740,7 +740,7 @@ public class BookingService {
                 booking.getId(),
                 pitchName,
                 booking.getStartDateTime().toString().replace("T", " ").substring(0, 16));
-        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg);
+        notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.BOOKING_REJECTED, msg, booking.getId());
     }
 
 }

@@ -147,12 +147,13 @@ public class BookingEquipmentService {
                 actorName, be.getQuantity(), equipment.getName(), booking.getId());
 
         if (notifyAdmins) {
-            notificationService.notifyAdmins(NotificationTypeEnum.EQUIPMENT_BORROWED, msg);
+            notificationService.notifyAdmins(NotificationTypeEnum.EQUIPMENT_BORROWED, msg, null, booking.getId());
         }
         if (notifyClient) {
             notificationService.createAndPush(booking.getUser(), NotificationTypeEnum.EQUIPMENT_BORROWED,
                     String.format("Bạn đã được tạo mượn %dx %s cho Booking #%d.",
-                            be.getQuantity(), equipment.getName(), booking.getId()));
+                            be.getQuantity(), equipment.getName(), booking.getId()),
+                    booking.getId());
         }
 
         return convertToResDTO(be);
@@ -234,7 +235,7 @@ public class BookingEquipmentService {
                     be.getQuantity(),
                     statusVi,
                     be.getBooking().getId());
-            notificationService.notifyAdmins(notifType, adminMsg);
+            notificationService.notifyAdmins(notifType, adminMsg, null, be.getBooking().getId());
         }
 
         if (notifyClient) {
@@ -243,7 +244,7 @@ public class BookingEquipmentService {
                     be.getQuantity(),
                     be.getBooking().getId(),
                     statusVi);
-            notificationService.createAndPush(be.getBooking().getUser(), notifType, clientMsg);
+            notificationService.createAndPush(be.getBooking().getUser(), notifType, clientMsg, be.getBooking().getId());
         }
 
         return convertToResDTO(be);
@@ -387,7 +388,8 @@ public class BookingEquipmentService {
         notificationService.createAndPush(
                 be.getBooking().getUser(),
                 mapStatusToNotificationType(be.getStatus()),
-                clientMsg);
+                clientMsg,
+                be.getBooking().getId());
 
         return convertToResDTO(be);
     }

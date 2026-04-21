@@ -53,6 +53,9 @@ public class Notification {
     @Column(name = "sender_avatar_url", length = 1000)
     private String senderAvatarUrl;
 
+    @Column(name = "reference_id")
+    private Long referenceId;
+
     @Column(nullable = false)
     private boolean isRead = false;
 

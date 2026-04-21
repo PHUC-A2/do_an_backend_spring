@@ -3,6 +3,7 @@ package com.example.backend.service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +57,7 @@ public class NotificationService {
 
     /** Gửi thông báo cho mọi admin đang hoạt động (không loại trừ ai). */
     public void notifyAdmins(NotificationTypeEnum type, String message) {
-        notifyAdmins(type, message, null);
+        notifyAdmins(type, message, null, null);
     }
 
     /**
@@ -64,10 +65,14 @@ public class NotificationService {
      * để tránh trùng bản ghi + spam WebSocket/FCM cho cùng một hành động.
      */
     public void notifyAdmins(NotificationTypeEnum type, String message, Long excludeUserId) {
+        notifyAdmins(type, message, excludeUserId, null);
+    }
+
+    public void notifyAdmins(NotificationTypeEnum type, String message, Long excludeUserId, Long referenceId) {
         userRepository.findDistinctByRoles_Name("ADMIN").stream()
                 .filter(admin -> admin.getStatus() == UserStatusEnum.ACTIVE)
                 .filter(admin -> excludeUserId == null || !excludeUserId.equals(admin.getId()))
-                .forEach(admin -> createAndPush(admin, type, message));
+                .forEach(admin -> createAndPush(admin, type, message, referenceId));
     }
 
     // ──────────────────────────────────────────────────────────────
@@ -75,17 +80,23 @@ public class NotificationService {
     // ──────────────────────────────────────────────────────────────
 
     public void createAndPush(User user, NotificationTypeEnum type, String message) {
+        createAndPush(user, type, message, null);
+    }
+
+    public void createAndPush(User user, NotificationTypeEnum type, String message, Long referenceId) {
         Notification n = new Notification();
         n.setUser(user);
         n.setType(type);
         n.setMessage(message);
+        n.setReferenceId(referenceId);
         fillSenderSnapshot(n);
         n.setRead(false);
         notificationRepository.save(n);
 
         // Đẩy payload tới mọi tab đang mở của người nhận — FE phát chuông trong handler event "notification"
-        pushToUser(user.getEmail(), convertToDTO(n));
-        sendFcmPush(user, resolvePushTitle(type), message);
+        ResNotificationDTO dto = convertToDTO(n);
+        pushToUser(user.getEmail(), dto);
+        sendFcmPush(user, dto, resolvePushTitle(type), message);
     }
 
     private void fillSenderSnapshot(Notification notification) {
@@ -221,7 +232,7 @@ public class NotificationService {
                     pitchName,
                     startAt);
 
-            createAndPush(user, NotificationTypeEnum.MATCH_REMINDER, msg);
+            createAndPush(user, NotificationTypeEnum.MATCH_REMINDER, msg, booking.getId());
         }
     }
 
@@ -229,23 +240,71 @@ public class NotificationService {
     // FCM push notification
     // ──────────────────────────────────────────────────────────────
 
-    private void sendFcmPush(User user, String title, String body) {
+    private void sendFcmPush(User user, ResNotificationDTO dto, String title, String body) {
         if (user.getFcmToken() == null || user.getFcmToken().isBlank())
             return;
         try {
             if (FirebaseApp.getApps().isEmpty())
                 return;
-            Message msg = Message.builder()
+            Message.Builder builder = Message.builder()
                     .setToken(user.getFcmToken())
                     .setNotification(com.google.firebase.messaging.Notification.builder()
                             .setTitle(title)
                             .setBody(body)
-                            .build())
-                    .build();
-            FirebaseMessaging.getInstance().send(msg);
+                            .build());
+
+            Map<String, String> payload = buildMobilePayload(dto);
+            payload.forEach(builder::putData);
+
+            FirebaseMessaging.getInstance().send(builder.build());
         } catch (NoClassDefFoundError | Exception e) {
             log.warn("[FCM] Push skipped for {}: {}", user.getEmail(), e.getMessage());
         }
+    }
+
+    private Map<String, String> buildMobilePayload(ResNotificationDTO dto) {
+        java.util.LinkedHashMap<String, String> payload = new java.util.LinkedHashMap<>();
+        payload.put("type", dto.getType().name());
+        payload.put("targetTab", resolveTargetTab(dto.getType()));
+
+        if (dto.getReferenceId() != null) {
+            payload.put("referenceId", String.valueOf(dto.getReferenceId()));
+            if (isBookingLinkedType(dto.getType())) {
+                payload.put("bookingId", String.valueOf(dto.getReferenceId()));
+                payload.put("screen", "bookingdetail");
+            } else if (isPaymentLinkedType(dto.getType())) {
+                payload.put("bookingId", String.valueOf(dto.getReferenceId()));
+                payload.put("screen", "paymentqr");
+            }
+        }
+
+        return payload;
+    }
+
+    private boolean isBookingLinkedType(NotificationTypeEnum type) {
+        return switch (type) {
+            case BOOKING_CREATED, BOOKING_PENDING_CONFIRMATION, BOOKING_APPROVED, BOOKING_REJECTED,
+                    EQUIPMENT_BORROWED, EQUIPMENT_RETURNED, EQUIPMENT_LOST, EQUIPMENT_DAMAGED,
+                    MATCH_REMINDER -> true;
+            default -> false;
+        };
+    }
+
+    private boolean isPaymentLinkedType(NotificationTypeEnum type) {
+        return switch (type) {
+            case PAYMENT_REQUESTED, PAYMENT_PROOF_UPLOADED, PAYMENT_CONFIRMED -> true;
+            default -> false;
+        };
+    }
+
+    private String resolveTargetTab(NotificationTypeEnum type) {
+        if (isBookingLinkedType(type) || isPaymentLinkedType(type)) {
+            return "MyBookings";
+        }
+        return switch (type) {
+            case AI_KEY_EXPIRED -> "Notifications";
+            default -> "Notifications";
+        };
     }
 
     private String resolvePushTitle(NotificationTypeEnum type) {
@@ -278,6 +337,7 @@ public class NotificationService {
         dto.setSenderId(n.getSenderId());
         dto.setSenderName(n.getSenderName());
         dto.setSenderAvatarUrl(n.getSenderAvatarUrl());
+        dto.setReferenceId(n.getReferenceId());
         dto.setRead(n.isRead());
         dto.setDeletedByUser(n.isDeletedByUser());
         dto.setCreatedAt(n.getCreatedAt());
