@@ -96,6 +96,7 @@ public class NotificationService {
         // Đẩy payload tới mọi tab đang mở của người nhận — FE phát chuông trong handler event "notification"
         ResNotificationDTO dto = convertToDTO(n);
         pushToUser(user.getEmail(), dto);
+        notificationSocketHandler.sendRingToUser(user.getEmail());
         sendFcmPush(user, dto, resolvePushTitle(type), message);
     }
 

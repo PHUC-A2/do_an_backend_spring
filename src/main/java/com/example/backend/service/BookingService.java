@@ -395,6 +395,7 @@ public class BookingService {
         res.setContactPhone(booking.getContactPhone());
         res.setDurationMinutes(booking.getDurationMinutes());
         res.setTotalPrice(booking.getTotalPrice());
+        res.setStatus(booking.getStatus());
         // Thông tin user
         res.setUserId(booking.getUser() != null ? booking.getUser().getId() : null);
         String userName = (booking.getUser() != null && booking.getUser().getFullName() != null
@@ -479,7 +480,40 @@ public class BookingService {
             throw new BadRequestException("Booking đã bị xóa khỏi lịch sử");
         }
 
-        return this.updateBooking(id, req);
+        this.updateBooking(id, req);
+
+        Booking updatedBooking = getBookingByIdForUser(id, email);
+        updatedBooking.setStatus(BookingStatusEnum.PENDING);
+        bookingRepository.save(updatedBooking);
+
+        String pitchName = updatedBooking.getPitch() != null && updatedBooking.getPitch().getName() != null
+                ? updatedBooking.getPitch().getName()
+                : "sân";
+        String bookingTime = updatedBooking.getStartDateTime().toString().replace("T", " ").substring(0, 16);
+        User bookingUser = updatedBooking.getUser();
+
+        String userMsg = String.format(
+                "Booking #%d – %s lúc %s đã được cập nhật và đang chờ admin xác nhận lại.",
+                updatedBooking.getId(), pitchName, bookingTime);
+        notificationService.createAndPush(
+                bookingUser,
+                NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION,
+                userMsg,
+                updatedBooking.getId());
+
+        String requesterName = bookingUser.getFullName() != null && !bookingUser.getFullName().isBlank()
+                ? bookingUser.getFullName()
+                : bookingUser.getName();
+        String adminMsg = String.format(
+                "Booking #%d của %s vừa được cập nhật sang sân %s lúc %s và cần xác nhận lại.",
+                updatedBooking.getId(), requesterName, pitchName, bookingTime);
+        notificationService.notifyAdmins(
+                NotificationTypeEnum.BOOKING_PENDING_CONFIRMATION,
+                adminMsg,
+                bookingUser.getId(),
+                updatedBooking.getId());
+
+        return convertToResUpdateBookingDTO(updatedBooking);
     }
 
     // Delete booking của user
