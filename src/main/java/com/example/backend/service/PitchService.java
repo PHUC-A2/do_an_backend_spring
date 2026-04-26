@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import com.example.backend.domain.entity.Pitch;
 import com.example.backend.domain.entity.PitchHourlyPrice;
+import com.example.backend.domain.entity.PitchType;
 import com.example.backend.domain.request.pitch.ReqCreatePitchDTO;
 import com.example.backend.domain.request.pitch.ReqPitchHourlyPriceDTO;
 import com.example.backend.domain.request.pitch.ReqUpdatePitchDTO;
@@ -36,14 +37,17 @@ public class PitchService {
     private final PitchRepository pitchRepository;
     private final PitchEquipmentRepository pitchEquipmentRepository;
     private final ReviewRepository reviewRepository;
+    private final PitchTypeService pitchTypeService;
 
     public PitchService(
             PitchRepository pitchRepository,
             PitchEquipmentRepository pitchEquipmentRepository,
-            ReviewRepository reviewRepository) {
+            ReviewRepository reviewRepository,
+            PitchTypeService pitchTypeService) {
         this.pitchRepository = pitchRepository;
         this.pitchEquipmentRepository = pitchEquipmentRepository;
         this.reviewRepository = reviewRepository;
+        this.pitchTypeService = pitchTypeService;
     }
 
     public ResCreatePitchDTO createPitch(@NonNull ReqCreatePitchDTO req) {
@@ -95,7 +99,7 @@ public class PitchService {
 
         // Cập nhật thông tin cơ bản của sân
         pitch.setName(req.getName());
-        pitch.setPitchType(req.getPitchType());
+        pitch.setPitchType(resolvePitchType(req.getPitchTypeId()));
         pitch.setPricePerHour(req.getPricePerHour());
         pitch.setPitchUrl(req.getPitchUrl());
         pitch.setOpenTime(req.getOpenTime());
@@ -137,7 +141,7 @@ public class PitchService {
 
         // Lưu thông tin cơ bản
         pitch.setName(req.getName());
-        pitch.setPitchType(req.getPitchType());
+        pitch.setPitchType(resolvePitchType(req.getPitchTypeId()));
         pitch.setPricePerHour(req.getPricePerHour());
         pitch.setPitchUrl(req.getPitchUrl());
         pitch.setOpenTime(req.getOpenTime());
@@ -165,7 +169,8 @@ public class PitchService {
 
         res.setId(pitch.getId());
         res.setName(pitch.getName());
-        res.setPitchType(pitch.getPitchType());
+        res.setPitchTypeId(pitch.getPitchType() != null ? pitch.getPitchType().getId() : null);
+        res.setPitchTypeName(pitch.getPitchType() != null ? pitch.getPitchType().getName() : null);
         res.setPricePerHour(pitch.getPricePerHour());
         res.setPitchUrl(pitch.getPitchUrl());
         res.setOpenTime(pitch.getOpenTime());
@@ -198,7 +203,8 @@ public class PitchService {
 
         res.setId(pitch.getId());
         res.setName(pitch.getName());
-        res.setPitchType(pitch.getPitchType());
+        res.setPitchTypeId(pitch.getPitchType() != null ? pitch.getPitchType().getId() : null);
+        res.setPitchTypeName(pitch.getPitchType() != null ? pitch.getPitchType().getName() : null);
         res.setPricePerHour(pitch.getPricePerHour());
         res.setPitchUrl(pitch.getPitchUrl());
         res.setOpenTime(pitch.getOpenTime());
@@ -236,7 +242,8 @@ public class PitchService {
 
         res.setId(pitch.getId());
         res.setName(pitch.getName());
-        res.setPitchType(pitch.getPitchType());
+        res.setPitchTypeId(pitch.getPitchType() != null ? pitch.getPitchType().getId() : null);
+        res.setPitchTypeName(pitch.getPitchType() != null ? pitch.getPitchType().getName() : null);
         res.setPricePerHour(pitch.getPricePerHour());
         res.setPitchUrl(pitch.getPitchUrl());
         res.setOpenTime(pitch.getOpenTime());
@@ -406,6 +413,17 @@ public class PitchService {
 
     private int toMinute(java.time.LocalTime t) {
         return t.getHour() * 60 + t.getMinute();
+    }
+
+    private PitchType resolvePitchType(Long pitchTypeId) {
+        if (pitchTypeId == null) {
+            throw new BadRequestException("Loại sân không được để trống");
+        }
+        try {
+            return pitchTypeService.getPitchTypeById(pitchTypeId);
+        } catch (IdInvalidException ex) {
+            throw new BadRequestException("Loại sân không hợp lệ");
+        }
     }
 
     // Validator nhỏ để giảm boilerplate null-check thời gian

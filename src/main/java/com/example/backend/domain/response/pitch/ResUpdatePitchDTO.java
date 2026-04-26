@@ -6,7 +6,6 @@ import java.time.LocalTime;
 import java.util.List;
 
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
-import com.example.backend.util.constant.pitch.PitchTypeEnum;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -18,7 +17,8 @@ import lombok.NoArgsConstructor;
 public class ResUpdatePitchDTO {
     private Long id;
     private String name;
-    private PitchTypeEnum pitchType;;
+    private Long pitchTypeId;
+    private String pitchTypeName;
     private BigDecimal pricePerHour;
     private String pitchUrl;
     private LocalTime openTime;

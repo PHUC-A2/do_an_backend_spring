@@ -67,6 +67,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         ensureNotificationSoundPresetDefaults();
         ensureBankAccountConfigColumnsCompatible();
         ensureSecuritySettingsTableAndUserPaymentPinColumn();
+        ensurePitchTypeBackfill();
 
         // long countPermissions = permissionRepository.count();
         // 1. Tạo PERMISSION nếu chưa có
@@ -470,6 +471,20 @@ public class DatabaseInitializer implements CommandLineRunner {
             permission.setName(name);
             permission.setDescription(description);
             permissionRepository.save(permission);
+        }
+    }
+
+    private void ensurePitchTypeBackfill() {
+        try {
+            jdbcTemplate.execute(
+                    """
+                            UPDATE pitches p
+                            JOIN pitch_types pt ON pt.code = p.pitch_type
+                            SET p.pitch_type_id = pt.id
+                            WHERE p.pitch_type_id IS NULL
+                            """);
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED pitch_type backfill: " + ex.getMessage());
         }
     }
 

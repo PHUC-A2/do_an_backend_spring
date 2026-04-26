@@ -5,7 +5,6 @@ import java.time.LocalTime;
 import java.util.List;
 
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
-import com.example.backend.util.constant.pitch.PitchTypeEnum;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
@@ -26,7 +25,7 @@ public class ReqCreatePitchDTO {
     private String name;
 
     @NotNull(message = "Loại sân không được để trống")
-    private PitchTypeEnum pitchType; // THREE / SEVEN
+    private Long pitchTypeId;
 
     @NotNull(message = "Giá theo giờ không được để trống")
     @DecimalMin(value = "0.0", inclusive = false, message = "Giá phải lớn hơn 0")

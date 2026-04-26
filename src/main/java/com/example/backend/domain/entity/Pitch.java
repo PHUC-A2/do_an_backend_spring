@@ -8,7 +8,6 @@ import java.util.List;
 
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
-import com.example.backend.util.constant.pitch.PitchTypeEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Column;
@@ -20,6 +19,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -47,8 +48,9 @@ public class Pitch {
     @Column(nullable = false)
     private String name;
 
-    @Enumerated(EnumType.STRING)
-    private PitchTypeEnum pitchType = PitchTypeEnum.SEVEN;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "pitch_type_id")
+    private PitchType pitchType;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal pricePerHour;
