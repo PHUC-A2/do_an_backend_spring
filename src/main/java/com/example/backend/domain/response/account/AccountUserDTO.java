@@ -1,5 +1,6 @@
 package com.example.backend.domain.response.account;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
@@ -23,6 +24,18 @@ public class AccountUserDTO {
     private NotificationSoundPresetEnum notificationSoundPreset;
 
     private List<ResRoleNestedDetailDTO> roles;
+
+    /**
+     * Số tenant tài khoản đang được gắn (bảng tenant_user). &gt;0: chủ/ nhân sự cửa hàng — UI cho phép
+     * mở /admin kể cả khi global role là VIEW.
+     */
+    private Integer linkedTenantCount;
+
+    /** Quyền hiệu lực theo gói / tenant (khớp JWT). */
+    private List<String> effectivePermissionNames;
+    private String currentPlan;
+    private Instant subscriptionEndAt;
+    private Boolean subscriptionActive;
 
     /** User đã lưu PIN xác nhận thanh toán hay chưa (không trả giá trị PIN). */
     private Boolean paymentPinConfigured;

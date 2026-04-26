@@ -6,12 +6,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.example.backend.domain.entity.SecuritySettings;
 import com.example.backend.domain.response.security.ResSecuritySettingsDTO;
 import com.example.backend.repository.SecuritySettingsRepository;
+import com.example.backend.tenant.TenantContext;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * Quản lý bản ghi cấu hình bảo mật singleton (bật/tắt PIN xác nhận thanh toán).
- */
 @Service
 @RequiredArgsConstructor
 public class SecuritySettingsService {
@@ -20,14 +18,12 @@ public class SecuritySettingsService {
 
     @Transactional(readOnly = true)
     public boolean isPaymentConfirmationPinRequired() {
-        return securitySettingsRepository.findById(SecuritySettings.SINGLETON_ID)
-                .map(s -> Boolean.TRUE.equals(s.getPaymentConfirmationPinRequired()))
-                .orElse(false);
+        return Boolean.TRUE.equals(loadOrNullForContext().getPaymentConfirmationPinRequired());
     }
 
     @Transactional(readOnly = true)
     public ResSecuritySettingsDTO getDto() {
-        SecuritySettings row = getOrCreateSingleton();
+        SecuritySettings row = loadOrNullForContext();
         return ResSecuritySettingsDTO.builder()
                 .paymentConfirmationPinRequired(Boolean.TRUE.equals(row.getPaymentConfirmationPinRequired()))
                 .build();
@@ -35,20 +31,33 @@ public class SecuritySettingsService {
 
     @Transactional
     public ResSecuritySettingsDTO updatePaymentConfirmationPinRequired(boolean required) {
-        SecuritySettings row = getOrCreateSingleton();
+        SecuritySettings row = getOrCreateMutable();
         row.setPaymentConfirmationPinRequired(required);
         securitySettingsRepository.save(row);
         return ResSecuritySettingsDTO.builder()
-                .paymentConfirmationPinRequired(required)
+                .paymentConfirmationPinRequired(Boolean.TRUE.equals(row.getPaymentConfirmationPinRequired()))
                 .build();
     }
 
-    private SecuritySettings getOrCreateSingleton() {
-        return securitySettingsRepository.findById(SecuritySettings.SINGLETON_ID).orElseGet(() -> {
-            SecuritySettings created = new SecuritySettings();
-            created.setId(SecuritySettings.SINGLETON_ID);
-            created.setPaymentConfirmationPinRequired(false);
-            return securitySettingsRepository.save(created);
-        });
+    private SecuritySettings loadOrNullForContext() {
+        long tid = TenantContext.requireCurrentTenantId();
+        return securitySettingsRepository.findByTenantId(tid)
+                .orElseGet(() -> {
+                    SecuritySettings s = new SecuritySettings();
+                    s.setTenantId(tid);
+                    s.setPaymentConfirmationPinRequired(false);
+                    return s;
+                });
+    }
+
+    private SecuritySettings getOrCreateMutable() {
+        long tid = TenantContext.requireCurrentTenantId();
+        return securitySettingsRepository.findByTenantId(tid)
+                .orElseGet(() -> {
+                    SecuritySettings s = new SecuritySettings();
+                    s.setTenantId(tid);
+                    s.setPaymentConfirmationPinRequired(false);
+                    return securitySettingsRepository.save(s);
+                });
     }
 }

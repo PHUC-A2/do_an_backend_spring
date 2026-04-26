@@ -10,4 +10,6 @@ public class ResLoginDTO {
     @JsonProperty("access_token")
     private String accessToken;
     private LoginUserDTO user;
+    /** Tenant hiện tại (khớp claim trong access token). */
+    private Long currentTenantId;
 }

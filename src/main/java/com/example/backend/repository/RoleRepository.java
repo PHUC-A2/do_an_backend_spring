@@ -18,13 +18,27 @@ import com.example.backend.domain.entity.Role;
 public interface RoleRepository extends JpaRepository<Role, Long>, JpaSpecificationExecutor<Role> {
     boolean existsByName(String name);
 
+    /** @deprecated Dùng {@link #findByNameAndTenantIsNull} — tên có thể trùng giữa các tenant. */
+    @Deprecated
     Role findByName(String name);
 
-    @EntityGraph(attributePaths = "permissions")
+    Optional<Role> findByNameAndTenantIsNull(String name);
+
+    boolean existsByNameAndTenantIsNull(String name);
+
+    boolean existsByNameAndTenant_Id(String name, Long tenantId);
+
+    boolean existsByNameAndTenantIsNullAndIdNot(String name, Long id);
+
+    boolean existsByNameAndTenant_IdAndIdNot(String name, Long tenantId, Long id);
+
+    long countByTenant_Id(Long tenantId);
+
+    @EntityGraph(attributePaths = { "permissions", "tenant" })
     Optional<Role> findWithPermissionsById(Long id);
 
     @Override
-    @EntityGraph(attributePaths = "permissions")
+    @EntityGraph(attributePaths = { "permissions", "tenant" })
     @NonNull
     Page<Role> findAll(@Nullable Specification<Role> spec, @NonNull Pageable pageable);
 }

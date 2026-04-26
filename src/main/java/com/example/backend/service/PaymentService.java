@@ -25,6 +25,7 @@ import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.payment.PaymentMethodEnum;
 import com.example.backend.util.constant.payment.PaymentStatusEnum;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
+import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -67,7 +68,8 @@ public class PaymentService {
 
         // Với chuyển khoản, bắt buộc phải có cấu hình tài khoản ngân hàng đang bật trước khi tạo payment.
         if (method == PaymentMethodEnum.BANK_TRANSFER) {
-            systemConfigService.getActivePaymentBankInfo();
+            long tid = resolveBankConfigTenantId(booking);
+            systemConfigService.getActivePaymentBankInfoForTenant(tid);
         }
 
         // Nếu đã PAID → không cho tạo lại
@@ -96,6 +98,7 @@ public class PaymentService {
         payment.setMethod(method);
         payment.setContent("BOOKING_" + booking.getId());
         payment.setPaymentCode(generatePaymentCode());
+        payment.setTenantId(booking.getTenantId() != null ? booking.getTenantId() : TenantContext.requireCurrentTenantId());
 
         paymentRepository.save(payment);
 
@@ -129,7 +132,12 @@ public class PaymentService {
             throw new BadRequestException("Payment đã thanh toán");
         }
 
-        ResPaymentBankInfoDTO paymentBankInfo = systemConfigService.getActivePaymentBankInfo();
+        long tid = payment.getTenantId() != null
+                ? payment.getTenantId()
+                : (payment.getBooking() != null
+                        ? resolveBankConfigTenantId(payment.getBooking())
+                        : TenantService.DEFAULT_TENANT_ID);
+        ResPaymentBankInfoDTO paymentBankInfo = systemConfigService.getActivePaymentBankInfoForTenant(tid);
 
         String codeToUse = paymentBankInfo.getBankCode();
         String accountNoToUse = paymentBankInfo.getAccountNo();
@@ -151,6 +159,16 @@ public class PaymentService {
                 .content(payment.getContent())
                 .vietQrUrl(vietQrUrl)
                 .build();
+    }
+
+    private long resolveBankConfigTenantId(Booking booking) {
+        if (booking.getTenantId() != null) {
+            return booking.getTenantId();
+        }
+        if (booking.getPitch() != null && booking.getPitch().getTenantId() != null) {
+            return booking.getPitch().getTenantId();
+        }
+        return TenantContext.requireCurrentTenantId();
     }
 
     private String generatePaymentCode() {

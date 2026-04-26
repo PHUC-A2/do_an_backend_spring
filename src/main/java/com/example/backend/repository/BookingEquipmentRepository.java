@@ -13,6 +13,8 @@ import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 @Repository
 public interface BookingEquipmentRepository extends JpaRepository<BookingEquipment, Long>, JpaSpecificationExecutor<BookingEquipment> {
 
+    List<BookingEquipment> findAllByTenantId(Long tenantId);
+
     List<BookingEquipment> findByBookingId(Long bookingId);
 
     List<BookingEquipment> findByBookingUserEmail(String email);
@@ -25,6 +27,12 @@ public interface BookingEquipmentRepository extends JpaRepository<BookingEquipme
 
     long countByStatus(BookingEquipmentStatusEnum status);
 
+    long countByTenantId(long tenantId);
+
+    long countByStatusAndTenantId(BookingEquipmentStatusEnum status, long tenantId);
+
     /** Biên bản trả do khách gửi, chờ admin xác nhận. */
     long countByReturnAdminConfirmedFalse();
+
+    long countByReturnAdminConfirmedFalseAndTenantId(long tenantId);
 }

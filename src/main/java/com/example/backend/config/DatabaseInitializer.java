@@ -1,5 +1,6 @@
 package com.example.backend.config;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -60,6 +61,10 @@ public class DatabaseInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) throws Exception {
         System.out.println(">>> START INIT DATABASE");
+
+        ensureMultiTenantSchema();
+
+        ensureRolesTenantColumnAndConstraints();
 
         ensureBookingStatusColumnCompatible();
         ensureNotificationTypeColumnCompatible();
@@ -200,7 +205,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         // }
 
         // ================== INIT ROLE ADMIN ==================
-        Role adminRole = roleRepository.findByName("ADMIN");
+        Role adminRole = roleRepository.findByNameAndTenantIsNull("ADMIN").orElse(null);
         if (adminRole == null) {
             adminRole = new Role();
             adminRole.setName("ADMIN");
@@ -209,7 +214,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
 
         // ================== INIT ROLE VIEW ==================
-        Role viewRole = roleRepository.findByName("VIEW");
+        Role viewRole = roleRepository.findByNameAndTenantIsNull("VIEW").orElse(null);
         List<Permission> allPermissions = permissionRepository.findAll();
         Set<Permission> viewPermissions = new HashSet<>();
 
@@ -277,19 +282,238 @@ public class DatabaseInitializer implements CommandLineRunner {
             }
         }
 
+        linkAllUsersToDefaultTenant();
+
+        // Không gọi syncAllPlansWithFullPermissionCatalog() mỗi lần chạy: sẽ ghi đè plan_permissions
+        // (toàn bộ quyền) và FE /admin/plans sẽ thấy mọi switch bật lại. Gói tạo mới: không quyền; cần full catalog
+        // thì gọi: POST /api/v1/admin/plans/{id}/permissions/full-catalog
+
         System.out.println(">>> END INIT DATABASE");
+    }
+
+    private void ensureMultiTenantSchema() {
+        try {
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS tenants ("
+                            + "id BIGINT NOT NULL AUTO_INCREMENT, slug VARCHAR(120) NOT NULL, name VARCHAR(255) NOT NULL, "
+                            + "created_at DATETIME(6) NOT NULL, PRIMARY KEY (id), UNIQUE KEY uk_tenants_slug (slug)"
+                            + ") ENGINE=InnoDB");
+            Integer tc = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM tenants WHERE id = 1", Integer.class);
+            if (tc != null && tc == 0) {
+                jdbcTemplate.update(
+                        "INSERT INTO tenants (id, slug, name, created_at) VALUES (1, 'default', 'Default', NOW(6))");
+            }
+            ensureTenantStatusColumn();
+            ensureTenantContactAndDescriptionColumns();
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS tenant_users ("
+                            + "id BIGINT NOT NULL AUTO_INCREMENT, tenant_id BIGINT NOT NULL, user_id BIGINT NOT NULL, "
+                            + "created_at DATETIME(6) NOT NULL, PRIMARY KEY (id), "
+                            + "UNIQUE KEY uk_tenant_users_tu (tenant_id, user_id)"
+                            + ") ENGINE=InnoDB");
+            ensureTenantUserRoleColumn();
+            ensureTenantUserActiveColumn();
+            migrateLegacyTenantStatusValues();
+            jdbcTemplate.update("UPDATE tenants SET status = 'APPROVED' WHERE id = 1");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION tenants: " + ex.getMessage());
+        }
+
+        String[] tenantTables = {
+                "pitches", "pitch_hourly_prices", "equipments", "pitch_equipments", "bookings", "payments",
+                "booking_equipments", "equipment_borrow_logs", "reviews", "review_messages", "notifications",
+                "bank_account_configs", "messenger_configs", "email_sender_configs",
+                "support_contacts", "support_resource_links", "support_maintenance_items", "support_issue_guides",
+                "ai_api_keys", "ai_chat_sessions"
+        };
+        for (String t : tenantTables) {
+            addTenantIdColumn(t);
+        }
+        ensurePlanAndSubscriptionTables();
+    }
+
+    /**
+     * Role theo tenant: cột tenant_id, bỏ unique cũ trên name, unique (tenant_id, name), FK tới tenants.
+     * Chạy sau khi Hibernate có thể đã tạo cột — vẫn xử lý index cũ trên DB tồn tại.
+     */
+    private void ensureRolesTenantColumnAndConstraints() {
+        try {
+            addColumnIfMissing("roles", "tenant_id", "BIGINT NULL");
+            List<String> idxNames = new ArrayList<>(jdbcTemplate.query(
+                    "SELECT DISTINCT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS "
+                            + "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roles' "
+                            + "AND COLUMN_NAME = 'name' AND NON_UNIQUE = 0",
+                    (rs, rowNum) -> rs.getString(1)));
+            for (String ix : idxNames) {
+                if (ix == null || "PRIMARY".equalsIgnoreCase(ix)) {
+                    continue;
+                }
+                try {
+                    jdbcTemplate.execute("ALTER TABLE roles DROP INDEX `" + ix.replace("`", "") + "`");
+                    System.out.println(">>> MIGRATION: roles dropped unique index on name: " + ix);
+                } catch (Exception ex) {
+                    System.out.println(">>> MIGRATION SKIP drop index " + ix + ": " + ex.getMessage());
+                }
+            }
+            try {
+                jdbcTemplate.execute("CREATE UNIQUE INDEX uk_roles_tenant_name ON roles (tenant_id, name)");
+            } catch (Exception ex) {
+                // Đã có hoặc Hibernate đã tạo
+            }
+            try {
+                jdbcTemplate.execute(
+                        "ALTER TABLE roles ADD CONSTRAINT fk_roles_tenant "
+                                + "FOREIGN KEY (tenant_id) REFERENCES tenants(id)");
+            } catch (Exception ex) {
+                // Đã có
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION roles tenant_id: " + ex.getMessage());
+        }
+    }
+
+    private void ensurePlanAndSubscriptionTables() {
+        try {
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS plans ("
+                            + "id BIGINT NOT NULL AUTO_INCREMENT, name VARCHAR(64) NOT NULL, description TEXT, "
+                            + "price DECIMAL(14,2) NOT NULL, duration_days INT NOT NULL, status VARCHAR(32) NOT NULL, "
+                            + "created_at DATETIME(6) NOT NULL, updated_at DATETIME(6) NULL, PRIMARY KEY (id)"
+                            + ") ENGINE=InnoDB");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS plan_permissions ("
+                            + "id BIGINT NOT NULL AUTO_INCREMENT, plan_id BIGINT NOT NULL, permission_id BIGINT NOT NULL, "
+                            + "PRIMARY KEY (id), UNIQUE KEY uk_plan_perms (plan_id, permission_id), "
+                            + "KEY idx_pp_plan (plan_id), KEY idx_pp_perm (permission_id)"
+                            + ") ENGINE=InnoDB");
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS subscriptions ("
+                            + "id BIGINT NOT NULL AUTO_INCREMENT, tenant_id BIGINT NOT NULL, plan_id BIGINT NOT NULL, "
+                            + "start_date DATETIME(6) NOT NULL, end_date DATETIME(6) NOT NULL, status VARCHAR(32) NOT NULL, "
+                            + "created_at DATETIME(6) NOT NULL, PRIMARY KEY (id), KEY idx_subs_tenant (tenant_id), "
+                            + "KEY idx_subs_plan (plan_id)"
+                            + ") ENGINE=InnoDB");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION plans/subscriptions: " + ex.getMessage());
+        }
+    }
+
+    private void ensureTenantStatusColumn() {
+        try {
+            Integer n = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'tenants' AND COLUMN_NAME = 'status'",
+                    Integer.class);
+            if (n != null && n == 0) {
+                jdbcTemplate.execute("ALTER TABLE tenants ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'APPROVED'");
+                System.out.println(">>> MIGRATION: tenants.status added");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIP tenants.status: " + ex.getMessage());
+        }
+    }
+
+    private void ensureTenantContactAndDescriptionColumns() {
+        try {
+            addColumnIfMissing("tenants", "contact_phone", "VARCHAR(64) NULL");
+            addColumnIfMissing("tenants", "contact_email", "VARCHAR(255) NULL");
+            addColumnIfMissing("tenants", "description", "TEXT NULL");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIP tenants contact: " + ex.getMessage());
+        }
+    }
+
+    private void addColumnIfMissing(String table, String col, String ddlSuffix) {
+        Integer n = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                        + "AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+                Integer.class,
+                table,
+                col);
+        if (n != null && n == 0) {
+            jdbcTemplate.execute("ALTER TABLE " + table + " ADD COLUMN " + col + " " + ddlSuffix);
+            System.out.println(">>> MIGRATION: " + table + "." + col);
+        }
+    }
+
+    private void ensureTenantUserActiveColumn() {
+        try {
+            Integer n = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'tenant_users' AND COLUMN_NAME = 'active'",
+                    Integer.class);
+            if (n != null && n == 0) {
+                jdbcTemplate.execute("ALTER TABLE tenant_users ADD COLUMN active TINYINT(1) NOT NULL DEFAULT 1");
+                System.out.println(">>> MIGRATION: tenant_users.active");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIP tenant_users.active: " + ex.getMessage());
+        }
+    }
+
+    private void migrateLegacyTenantStatusValues() {
+        try {
+            jdbcTemplate.update("UPDATE tenants SET status = 'APPROVED' WHERE UPPER(status) = 'ACTIVE'");
+            jdbcTemplate.update("UPDATE tenants SET status = 'REJECTED' WHERE UPPER(status) = 'INACTIVE'");
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIP status remap: " + ex.getMessage());
+        }
+    }
+
+    private void ensureTenantUserRoleColumn() {
+        try {
+            Integer n = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'tenant_users' AND COLUMN_NAME = 'role'",
+                    Integer.class);
+            if (n != null && n == 0) {
+                jdbcTemplate.execute("ALTER TABLE tenant_users ADD COLUMN role VARCHAR(64) NOT NULL DEFAULT 'MEMBER'");
+                System.out.println(">>> MIGRATION: tenant_users.role added");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIP tenant_users.role: " + ex.getMessage());
+        }
+    }
+
+    private void addTenantIdColumn(String table) {
+        try {
+            Integer n = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = ? AND COLUMN_NAME = 'tenant_id'",
+                    Integer.class,
+                    table);
+            if (n != null && n == 0) {
+                jdbcTemplate.execute("ALTER TABLE " + table + " ADD COLUMN tenant_id BIGINT NULL");
+                jdbcTemplate.update("UPDATE " + table + " SET tenant_id = 1 WHERE tenant_id IS NULL");
+                jdbcTemplate.execute("ALTER TABLE " + table + " MODIFY tenant_id BIGINT NOT NULL");
+                System.out.println(">>> MIGRATION: " + table + ".tenant_id added");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIP " + table + ": " + ex.getMessage());
+        }
+    }
+
+    private void linkAllUsersToDefaultTenant() {
+        try {
+            jdbcTemplate.update(
+                    "INSERT IGNORE INTO tenant_users (tenant_id, user_id, created_at, role) "
+                            + "SELECT 1, u.id, NOW(6), 'MEMBER' FROM users u");
+        } catch (Exception ex) {
+            try {
+                jdbcTemplate.update(
+                        "INSERT IGNORE INTO tenant_users (tenant_id, user_id, created_at) "
+                                + "SELECT 1, u.id, NOW(6) FROM users u");
+            } catch (Exception ex2) {
+                System.out.println(">>> MIGRATION tenant_users link: " + ex2.getMessage());
+            }
+        }
     }
 
     private void ensureBookingStatusColumnCompatible() {
         try {
             String dataType = jdbcTemplate.queryForObject(
-                    """
-                            SELECT DATA_TYPE
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_SCHEMA = DATABASE()
-                              AND TABLE_NAME = 'bookings'
-                              AND COLUMN_NAME = 'status'
-                            """,
+                    "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'status'",
                     String.class);
 
             if (dataType == null || !"enum".equalsIgnoreCase(dataType)) {
@@ -305,7 +529,10 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
     }
 
-    /** Gán mặc định bật chuông cho user cũ sau khi thêm cột notification_sound_enabled. */
+    /**
+     * Gán mặc định bật chuông cho user cũ sau khi thêm cột
+     * notification_sound_enabled.
+     */
     private void ensureNotificationSoundEnabledDefaults() {
         try {
             jdbcTemplate.execute(
@@ -315,7 +542,10 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
     }
 
-    /** Gán kiểu chuông DEFAULT cho user cũ sau khi thêm cột notification_sound_preset. */
+    /**
+     * Gán kiểu chuông DEFAULT cho user cũ sau khi thêm cột
+     * notification_sound_preset.
+     */
     private void ensureNotificationSoundPresetDefaults() {
         try {
             jdbcTemplate.execute(
@@ -328,13 +558,8 @@ public class DatabaseInitializer implements CommandLineRunner {
     private void ensureNotificationTypeColumnCompatible() {
         try {
             String dataType = jdbcTemplate.queryForObject(
-                    """
-                            SELECT DATA_TYPE
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_SCHEMA = DATABASE()
-                              AND TABLE_NAME = 'notifications'
-                              AND COLUMN_NAME = 'type'
-                            """,
+                    "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'notifications' AND COLUMN_NAME = 'type'",
                     String.class);
 
             if (dataType == null || !"enum".equalsIgnoreCase(dataType)) {
@@ -356,36 +581,48 @@ public class DatabaseInitializer implements CommandLineRunner {
      * - Đảm bảo có cột account_name_encrypted
      */
     /**
-     * Bảng singleton security_settings + cột hash PIN trên users (không lưu PIN rõ).
+     * Bảng singleton security_settings + cột hash PIN trên users (không lưu PIN
+     * rõ).
      */
     private void ensureSecuritySettingsTableAndUserPaymentPinColumn() {
         try {
-            jdbcTemplate.execute("""
-                    CREATE TABLE IF NOT EXISTS security_settings (
-                        id BIGINT NOT NULL PRIMARY KEY,
-                        payment_confirmation_pin_required BOOLEAN NOT NULL DEFAULT FALSE
-                    )
-                    """);
+            jdbcTemplate.execute(
+                    "CREATE TABLE IF NOT EXISTS security_settings ("
+                            + "id BIGINT NOT NULL PRIMARY KEY, "
+                            + "payment_confirmation_pin_required BOOLEAN NOT NULL DEFAULT FALSE)");
             jdbcTemplate.update(
-                    """
-                            INSERT INTO security_settings (id, payment_confirmation_pin_required)
-                            VALUES (1, FALSE)
-                            ON DUPLICATE KEY UPDATE id = id
-                            """);
+                    "INSERT INTO security_settings (id, payment_confirmation_pin_required) VALUES (1, FALSE) "
+                            + "ON DUPLICATE KEY UPDATE id = id");
             System.out.println(">>> MIGRATION: security_settings ensured");
         } catch (Exception ex) {
             System.out.println(">>> MIGRATION SKIPPED security_settings: " + ex.getMessage());
         }
 
         try {
+            Integer tidCol = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'security_settings' AND COLUMN_NAME = 'tenant_id'",
+                    Integer.class);
+            if (tidCol != null && tidCol == 0) {
+                jdbcTemplate.execute("ALTER TABLE security_settings ADD COLUMN tenant_id BIGINT NULL");
+                jdbcTemplate.update("UPDATE security_settings SET tenant_id = 1 WHERE tenant_id IS NULL");
+                jdbcTemplate.execute("ALTER TABLE security_settings MODIFY tenant_id BIGINT NOT NULL");
+                try {
+                    jdbcTemplate.execute(
+                            "CREATE UNIQUE INDEX uk_security_settings_tenant ON security_settings (tenant_id)");
+                } catch (Exception ignored) {
+                    // index may already exist
+                }
+                System.out.println(">>> MIGRATION: security_settings.tenant_id");
+            }
+        } catch (Exception ex) {
+            System.out.println(">>> MIGRATION SKIPPED security_settings.tenant_id: " + ex.getMessage());
+        }
+
+        try {
             Integer col = jdbcTemplate.queryForObject(
-                    """
-                            SELECT COUNT(*)
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_SCHEMA = DATABASE()
-                              AND TABLE_NAME = 'users'
-                              AND COLUMN_NAME = 'payment_pin_hash'
-                            """,
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'users' AND COLUMN_NAME = 'payment_pin_hash'",
                     Integer.class);
             if (col != null && col == 0) {
                 jdbcTemplate.execute("ALTER TABLE users ADD COLUMN payment_pin_hash VARCHAR(255) NULL");
@@ -399,13 +636,8 @@ public class DatabaseInitializer implements CommandLineRunner {
     private void ensureBankAccountConfigColumnsCompatible() {
         try {
             Integer accountNameCol = jdbcTemplate.queryForObject(
-                    """
-                            SELECT COUNT(*)
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_SCHEMA = DATABASE()
-                              AND TABLE_NAME = 'bank_account_configs'
-                              AND COLUMN_NAME = 'account_name_encrypted'
-                            """,
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'bank_account_configs' AND COLUMN_NAME = 'account_name_encrypted'",
                     Integer.class);
             if (accountNameCol != null && accountNameCol == 0) {
                 jdbcTemplate.execute(
@@ -422,13 +654,8 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         try {
             Integer bankTypeCol = jdbcTemplate.queryForObject(
-                    """
-                            SELECT COUNT(*)
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_SCHEMA = DATABASE()
-                              AND TABLE_NAME = 'bank_account_configs'
-                              AND COLUMN_NAME = 'bank_type_encrypted'
-                            """,
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'bank_account_configs' AND COLUMN_NAME = 'bank_type_encrypted'",
                     Integer.class);
             if (bankTypeCol != null && bankTypeCol > 0) {
                 jdbcTemplate.execute("ALTER TABLE bank_account_configs DROP COLUMN bank_type_encrypted");
@@ -440,13 +667,8 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         try {
             Integer bankNameCol = jdbcTemplate.queryForObject(
-                    """
-                            SELECT COUNT(*)
-                            FROM INFORMATION_SCHEMA.COLUMNS
-                            WHERE TABLE_SCHEMA = DATABASE()
-                              AND TABLE_NAME = 'bank_account_configs'
-                              AND COLUMN_NAME = 'bank_name_encrypted'
-                            """,
+                    "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+                            + "AND TABLE_NAME = 'bank_account_configs' AND COLUMN_NAME = 'bank_name_encrypted'",
                     Integer.class);
             if (bankNameCol != null && bankNameCol > 0) {
                 jdbcTemplate.execute("ALTER TABLE bank_account_configs DROP COLUMN bank_name_encrypted");

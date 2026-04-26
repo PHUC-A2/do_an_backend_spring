@@ -14,6 +14,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResRoleDetailDTO {
     private Long id;
+    /** null = role toàn hệ thống. */
+    private Long tenantId;
     private String name;
     private String description;
     private Instant createdAt;

@@ -22,6 +22,10 @@ public interface AiApiKeyRepository extends JpaRepository<AiApiKey, Long> {
 
     long countByActiveTrue();
 
+    long countByTenantId(long tenantId);
+
+    long countByActiveTrueAndTenantId(long tenantId);
+
     /** Tìm bản ghi key theo provider + chuỗi key (dùng khi đánh dấu lỗi, kể cả sau khi đã tắt). */
     Optional<AiApiKey> findFirstByProviderAndApiKeyOrderByIdAsc(AiProviderEnum provider, String apiKey);
 }

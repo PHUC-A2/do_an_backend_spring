@@ -9,6 +9,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.example.backend.domain.entity.Permission;
 import com.example.backend.domain.entity.Role;
@@ -22,6 +23,11 @@ import com.example.backend.domain.response.role.ResRoleListDTO;
 import com.example.backend.domain.response.role.ResUpdateRoleDTO;
 import com.example.backend.repository.PermissionRepository;
 import com.example.backend.repository.RoleRepository;
+import com.example.backend.repository.TenantRepository;
+import com.example.backend.tenant.TenantContext;
+import com.example.backend.util.RoleSecurityUtil;
+import com.example.backend.util.SecurityRbac;
+import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 import com.example.backend.util.error.NameInvalidException;
 
@@ -29,28 +35,55 @@ import com.example.backend.util.error.NameInvalidException;
 public class RoleService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final TenantRepository tenantRepository;
 
-    public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository) {
+    public RoleService(
+            RoleRepository roleRepository,
+            PermissionRepository permissionRepository,
+            TenantRepository tenantRepository) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
+        this.tenantRepository = tenantRepository;
     }
 
+    @Transactional
     public ResCreateRoleDTO createRole(@NonNull ReqCreateRoleDTO roleReq) throws NameInvalidException {
-
-        boolean isNameExists = this.roleRepository.existsByName(roleReq.getName());
-        if (isNameExists) {
-            throw new NameInvalidException("Name '" + roleReq.getName() + "' đã tồn tại");
+        if (SecurityRbac.hasAllAuthority()) {
+            boolean nameTaken = this.roleRepository.existsByNameAndTenantIsNull(roleReq.getName());
+            if (nameTaken) {
+                throw new NameInvalidException("Name '" + roleReq.getName() + "' đã tồn tại (role hệ thống)");
+            }
+        } else {
+            long tid = TenantContext.requireCurrentTenantId();
+            if (tid == TenantService.DEFAULT_TENANT_ID) {
+                throw new BadRequestException(
+                        "Chỉ tạo role trong ngữ cảnh shop đã gán. Không tạo role tại tenant hệ thống mặc định.");
+            }
+            if (isReservedSystemRoleName(roleReq.getName())) {
+                throw new NameInvalidException("Tên này dành cho hệ thống (ADMIN, VIEW, …)");
+            }
+            if (this.roleRepository.existsByNameAndTenant_Id(roleReq.getName(), tid)) {
+                throw new NameInvalidException("Name '" + roleReq.getName() + "' đã tồn tại trong shop này");
+            }
         }
 
         Role role = convertToReqCreateRoleDTO(roleReq);
-        Role saveRole = this.roleRepository.save(role);
+        if (SecurityRbac.hasAllAuthority()) {
+            role.setTenant(null);
+        } else {
+            long tid = TenantContext.requireCurrentTenantId();
+            role.setTenant(tenantRepository.getReferenceById(tid));
+        }
 
+        Role saveRole = this.roleRepository.save(role);
         return this.convertToResCreateRoleDTO(saveRole);
     }
 
     public ResultPaginationDTO getAllRoles(@Nullable Specification<Role> spec, @NonNull Pageable pageable) {
+        Specification<Role> scope = buildTenantScopeSpecification();
+        Specification<Role> finalSpec = (spec == null) ? scope : spec.and(scope);
 
-        Page<Role> pageRole = this.roleRepository.findAll(spec, pageable);
+        Page<Role> pageRole = this.roleRepository.findAll(finalSpec, pageable);
         ResultPaginationDTO rs = new ResultPaginationDTO();
         ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
 
@@ -71,30 +104,71 @@ public class RoleService {
         return rs;
     }
 
-    // public Role getRoleById(Long id) throws IdInvalidException {
-    // Optional<Role> roleOptional = this.roleRepository.findById(id);
-    // if (roleOptional.isPresent()) {
-    // return roleOptional.get();
-    // } else {
-    // throw new IdInvalidException("Không tìm thấy Role với ID = " + id);
-    // }
-    // }
-
-    public Role getRoleById(Long id) throws IdInvalidException {
-        return roleRepository.findWithPermissionsById(id)
-                .orElseThrow(() -> new IdInvalidException("Không tìm thấy Role với ID = " + id));
+    private static Specification<Role> buildTenantScopeSpecification() {
+        if (SecurityRbac.hasAllAuthority()) {
+            return (root, q, cb) -> cb.isTrue(cb.literal(true));
+        }
+        long tid = TenantContext.requireCurrentTenantId();
+        if (tid == TenantService.DEFAULT_TENANT_ID) {
+            return (root, q, cb) -> cb.equal(root.get("name"), RoleSecurityUtil.SYSTEM_DEFAULT_VIEW_NAME);
+        }
+        return (root, q, cb) -> cb.or(
+                cb.equal(root.get("tenant").get("id"), tid),
+                cb.and(
+                        cb.isNull(root.get("tenant")),
+                        cb.equal(root.get("name"), RoleSecurityUtil.SYSTEM_DEFAULT_VIEW_NAME)));
     }
 
+    public Role getRoleById(Long id) throws IdInvalidException {
+        Role role = roleRepository.findWithPermissionsById(id)
+                .orElseThrow(() -> new IdInvalidException("Không tìm thấy Role với ID = " + id));
+        assertCurrentPrincipalCanAccessRole(role);
+        return role;
+    }
+
+    private void assertCurrentPrincipalCanAccessRole(Role role) throws IdInvalidException {
+        if (SecurityRbac.hasAllAuthority()) {
+            return;
+        }
+        if (role.getTenant() == null) {
+            if (RoleSecurityUtil.isGlobalSystemViewRole(role)) {
+                return;
+            }
+            throw new IdInvalidException("Không tìm thấy Role với ID = " + role.getId());
+        }
+        long tid = TenantContext.requireCurrentTenantId();
+        if (role.getTenant().getId() != tid) {
+            throw new IdInvalidException("Không tìm thấy Role với ID = " + role.getId());
+        }
+    }
+
+    @Transactional
     public ResUpdateRoleDTO updateRole(Long id, ReqUpdateRoleDTO roleReq)
             throws IdInvalidException, NameInvalidException {
 
         Role role = getRoleById(id);
 
-        // Chỉ check khi đổi name
-        if (!role.getName().equals(roleReq.getName())
-                && roleRepository.existsByName(roleReq.getName())) {
-            throw new NameInvalidException(
-                    "Name '" + roleReq.getName() + "' đã tồn tại");
+        if (RoleSecurityUtil.isGlobalSystemAllRole(role) || RoleSecurityUtil.isGlobalSystemViewRole(role)) {
+            if (!SecurityRbac.hasAllAuthority()) {
+                throw new BadRequestException("Chỉ quản trị hệ thống được sửa role mặc định toàn hệ thống");
+            }
+        }
+
+        if (SecurityRbac.hasAllAuthority()) {
+            if (!role.getName().equals(roleReq.getName()) && this.roleRepository.existsByNameAndTenantIsNullAndIdNot(
+                    roleReq.getName(), id)) {
+                throw new NameInvalidException("Name '" + roleReq.getName() + "' đã tồn tại (role hệ thống)");
+            }
+        } else {
+            if (isReservedSystemRoleName(roleReq.getName())) {
+                throw new NameInvalidException("Tên này dành cho hệ thống (ADMIN, VIEW, …)");
+            }
+            if (!role.getName().equals(roleReq.getName())) {
+                long tid = role.getTenant() != null ? role.getTenant().getId() : TenantContext.requireCurrentTenantId();
+                if (this.roleRepository.existsByNameAndTenant_IdAndIdNot(roleReq.getName(), tid, id)) {
+                    throw new NameInvalidException("Name '" + roleReq.getName() + "' đã tồn tại trong shop này");
+                }
+            }
         }
 
         role.setName(roleReq.getName());
@@ -105,20 +179,21 @@ public class RoleService {
         return this.convertToResUpdateRoleDTO(updateRole);
     }
 
+    @Transactional
     public void deleteRole(@NonNull Long id) throws IdInvalidException {
-        // Role role = this.getRoleById(id);
-        this.getRoleById(id);
+        Role role = getRoleById(id);
+        if (RoleSecurityUtil.isGlobalSystemAllRole(role) || RoleSecurityUtil.isGlobalSystemViewRole(role)) {
+            throw new BadRequestException("Không xóa role hệ thống ADMIN / VIEW");
+        }
         this.roleRepository.deleteById(id);
     }
 
-    // convert req create
     @NonNull
     public Role convertToReqCreateRoleDTO(@NonNull ReqCreateRoleDTO req) {
-        Role role = new Role();
-        role.setName(req.getName());
-        role.setDescription(req.getDescription());
-
-        return role;
+        Role r = new Role();
+        r.setName(req.getName());
+        r.setDescription(req.getDescription());
+        return r;
     }
 
     // entity -> res get
@@ -127,6 +202,7 @@ public class RoleService {
         ResRoleListDTO res = new ResRoleListDTO();
 
         res.setId(role.getId());
+        res.setTenantId(role.getTenant() == null ? null : role.getTenant().getId());
         res.setName(role.getName());
         res.setDescription(role.getDescription());
         res.setCreatedAt(role.getCreatedAt());
@@ -143,6 +219,7 @@ public class RoleService {
         ResRoleDetailDTO res = new ResRoleDetailDTO();
 
         res.setId(role.getId());
+        res.setTenantId(role.getTenant() == null ? null : role.getTenant().getId());
         res.setName(role.getName());
         res.setDescription(role.getDescription());
         res.setCreatedAt(role.getCreatedAt());
@@ -191,17 +268,17 @@ public class RoleService {
     }
 
     // gắn permisison cho role
+    @Transactional
     public ResRoleListDTO assignPermissionsToRole(
             Long roleId,
             List<Long> permissionIds) throws IdInvalidException {
 
-        // 1. Check null
-        // if (permissionIds == null) {
-        //     throw new IdInvalidException("permissionIds không được null");
-        // }
-
-        // 2. Check role tồn tại
         Role role = this.getRoleById(roleId);
+
+        if (!SecurityRbac.hasAllAuthority()
+                && (RoleSecurityUtil.isGlobalSystemAllRole(role) || RoleSecurityUtil.isGlobalSystemViewRole(role))) {
+            throw new BadRequestException("Chỉ quản trị hệ thống được gán permission cho role mặc định toàn hệ thống");
+        }
 
         // 3. Cho phép clear permission
         if (permissionIds.isEmpty()) {
@@ -225,4 +302,11 @@ public class RoleService {
         return convertToResRoleListDTO(savedRole);
     }
 
+    private static boolean isReservedSystemRoleName(String name) {
+        if (name == null) {
+            return true;
+        }
+        String n = name.trim();
+        return "ADMIN".equalsIgnoreCase(n) || "VIEW".equalsIgnoreCase(n) || "ALL".equalsIgnoreCase(n);
+    }
 }

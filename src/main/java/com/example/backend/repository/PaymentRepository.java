@@ -32,10 +32,12 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     @Query("""
         SELECT COALESCE(SUM(p.amount), 0)
         FROM Payment p
-        WHERE p.status = :status
+        WHERE p.tenantId = :tenantId
+        AND p.status = :status
         AND p.paidAt BETWEEN :start AND :end
     """)
     BigDecimal sumRevenueByDateRange(
+            @Param("tenantId") long tenantId,
             @Param("status") PaymentStatusEnum status,
             @Param("start") Instant start,
             @Param("end") Instant end
@@ -45,12 +47,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
     @Query("""
         SELECT FUNCTION('DATE', p.paidAt), SUM(p.amount)
         FROM Payment p
-        WHERE p.status = :status
+        WHERE p.tenantId = :tenantId
+        AND p.status = :status
         AND p.paidAt BETWEEN :start AND :end
         GROUP BY FUNCTION('DATE', p.paidAt)
         ORDER BY FUNCTION('DATE', p.paidAt)
     """)
     List<Object[]> revenueGroupedByDate(
+            @Param("tenantId") long tenantId,
             @Param("status") PaymentStatusEnum status,
             @Param("start") Instant start,
             @Param("end") Instant end
@@ -62,19 +66,23 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, JpaSpec
                p.booking.pitch.name,
                SUM(p.amount)
         FROM Payment p
-        WHERE p.status = :status
+        WHERE p.tenantId = :tenantId
+        AND p.status = :status
         AND p.paidAt BETWEEN :start AND :end
         GROUP BY p.booking.pitch.id, p.booking.pitch.name
     """)
     List<Object[]> revenueGroupedByPitch(
+            @Param("tenantId") long tenantId,
             @Param("status") PaymentStatusEnum status,
             @Param("start") Instant start,
             @Param("end") Instant end
     );
 
-    long countByStatus(PaymentStatusEnum status);
+    long countByTenantId(long tenantId);
 
-    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status")
-    BigDecimal sumAmountByStatus(@Param("status") PaymentStatusEnum status);
+    long countByStatusAndTenantId(PaymentStatusEnum status, long tenantId);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.tenantId = :tenantId AND p.status = :status")
+    BigDecimal sumAmountByStatusAndTenantId(@Param("tenantId") long tenantId, @Param("status") PaymentStatusEnum status);
 
 }

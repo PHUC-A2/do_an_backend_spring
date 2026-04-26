@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
 import com.example.backend.service.UserService;
+import com.example.backend.util.RoleSecurityUtil;
 import com.example.backend.util.constant.user.UserStatusEnum;
 
 @Component("userDetailsService") // dùng để tạo ra UserDetailsService tự động chuyển u->U
@@ -46,7 +47,7 @@ public class UserDetailsCustom implements UserDetailsService {
         Collection<SimpleGrantedAuthority> authorities;
 
         boolean isAdmin = user.getRoles().stream()
-                .anyMatch(role -> role.getName().equals("ADMIN"));
+                .anyMatch(RoleSecurityUtil::isGlobalSystemAllRole);
         if (isAdmin) {
             // Nếu là ADMIN thì full quyền
             authorities = List.of(new SimpleGrantedAuthority("ALL"));

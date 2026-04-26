@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.equipment.EquipmentStatusEnum;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -33,8 +34,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Equipment {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class Equipment extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

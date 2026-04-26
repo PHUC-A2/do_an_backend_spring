@@ -13,7 +13,10 @@ import lombok.Setter;
 public class ReqRegisterDTO {
 
     private String name;
-    
+
+    /** Tên cửa hàng / sân (tùy chọn): nếu có sẽ tạo tenant mới gắn tài khoản làm OWNER. */
+    private String shopName;
+
     @NotBlank(message = "email không được để trống")
     private String email;
 

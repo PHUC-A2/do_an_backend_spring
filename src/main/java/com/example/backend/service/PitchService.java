@@ -26,6 +26,7 @@ import com.example.backend.domain.response.pitch.ResUpdatePitchDTO;
 import com.example.backend.repository.PitchEquipmentRepository;
 import com.example.backend.repository.PitchRepository;
 import com.example.backend.repository.ReviewRepository;
+import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.constant.review.ReviewStatusEnum;
 import com.example.backend.util.error.IdInvalidException;
 import com.example.backend.util.error.BadRequestException;
@@ -49,9 +50,18 @@ public class PitchService {
     public ResCreatePitchDTO createPitch(@NonNull ReqCreatePitchDTO req) {
 
         Pitch pitch = this.convertToReqCreatePitch(req);
+        pitch.setTenantId(TenantContext.requireCurrentTenantId());
+        syncHourlyPriceTenant(pitch);
         Pitch savedPitch = this.pitchRepository.save(pitch);
 
         return this.convertToResCreatePitchDTO(savedPitch, PitchRatingSummary.empty());
+    }
+
+    public ResultPaginationDTO getAllPitchesForCurrentTenant(Specification<Pitch> spec, @NonNull Pageable pageable) {
+        long tid = TenantContext.requireCurrentTenantId();
+        Specification<Pitch> tenantSpec = (root, q, cb) -> cb.equal(root.get("tenantId"), tid);
+        Specification<Pitch> combined = spec == null ? tenantSpec : spec.and(tenantSpec);
+        return getAllPitches(combined, pageable);
     }
 
     public ResultPaginationDTO getAllPitches(Specification<Pitch> spec, @NonNull Pageable pageable) {
@@ -92,6 +102,7 @@ public class PitchService {
             throws IdInvalidException {
 
         Pitch pitch = this.getPitchById(id);
+        assertCurrentTenant(pitch);
 
         // Cập nhật thông tin cơ bản của sân
         pitch.setName(req.getName());
@@ -115,6 +126,7 @@ public class PitchService {
         if (req.getHourlyPrices() != null) {
             applyHourlyPricesToPitch(pitch, req.getHourlyPrices());
         }
+        syncHourlyPriceTenant(pitch);
 
         Pitch updatedPitch = this.pitchRepository.save(pitch);
 
@@ -123,8 +135,8 @@ public class PitchService {
 
     public void deletePitch(@NonNull Long id) throws IdInvalidException {
 
-        // Pitch pitch = this.getPitchById(id);
-        this.getPitchById(id);
+        Pitch pitch = this.getPitchById(id);
+        assertCurrentTenant(pitch);
         pitchEquipmentRepository.deleteByPitchId(id);
         this.pitchRepository.deleteById(id);
     }
@@ -374,7 +386,9 @@ public class PitchService {
 
         List<Interval> intervals = new ArrayList<>();
         for (ReqPitchHourlyPriceDTO dto : hourlyPrices) {
-            LocalTimeValidator.ensureNotNull(dto.getStartTime(), dto.getEndTime());
+            if (dto.getStartTime() == null || dto.getEndTime() == null) {
+                throw new BadRequestException("Khung giờ giá không được để trống giờ bắt đầu/kết thúc");
+            }
 
             int startMin = toMinute(dto.getStartTime());
             int endMin = toMinute(dto.getEndTime());
@@ -408,18 +422,20 @@ public class PitchService {
         return t.getHour() * 60 + t.getMinute();
     }
 
-    // Validator nhỏ để giảm boilerplate null-check thời gian
-    private static final class LocalTimeValidator {
-        private static void ensureNotNull(Object start, Object end) {
-            if (start == null || end == null) {
-                throw new BadRequestException("Khung giờ giá không được để trống giờ bắt đầu/kết thúc");
-            }
+    private void assertCurrentTenant(Pitch pitch) {
+        long tid = TenantContext.requireCurrentTenantId();
+        if (pitch.getTenantId() == null || !pitch.getTenantId().equals(tid)) {
+            throw new BadRequestException("Sân không thuộc tenant hiện tại");
         }
     }
 
-    private record PitchRatingSummary(Double averageRating, Long reviewCount) {
-        private static PitchRatingSummary empty() {
-            return new PitchRatingSummary(0d, 0L);
+    private void syncHourlyPriceTenant(Pitch pitch) {
+        if (pitch.getHourlyPrices() == null) {
+            return;
+        }
+        Long tid = pitch.getTenantId();
+        for (PitchHourlyPrice h : pitch.getHourlyPrices()) {
+            h.setTenantId(tid);
         }
     }
 }

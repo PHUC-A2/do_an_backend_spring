@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.backend.domain.response.revenue.*;
 import com.example.backend.repository.*;
+import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.payment.PaymentStatusEnum;
 
@@ -27,6 +28,8 @@ public class RevenueService {
 
         public ResRevenueDashboardDTO getDashboard(LocalDate fromDate, LocalDate toDate) {
 
+                long tid = TenantContext.requireCurrentTenantId();
+
                 ZoneId zone = ZoneId.systemDefault();
 
                 Instant start = fromDate.atStartOfDay(zone).toInstant();
@@ -35,11 +38,9 @@ public class RevenueService {
                                 .toInstant()
                                 .minusMillis(1);
 
-                // ===== 1. Tổng doanh thu theo khoảng filter =====
                 BigDecimal totalRevenue = paymentRepository
-                                .sumRevenueByDateRange(PaymentStatusEnum.PAID, start, end);
+                                .sumRevenueByDateRange(tid, PaymentStatusEnum.PAID, start, end);
 
-                // ===== 2. Hôm nay =====
                 LocalDate today = LocalDate.now();
                 Instant todayStart = today.atStartOfDay(zone).toInstant();
                 Instant todayEnd = today.plusDays(1)
@@ -48,25 +49,22 @@ public class RevenueService {
                                 .minusMillis(1);
 
                 BigDecimal todayRevenue = paymentRepository
-                                .sumRevenueByDateRange(PaymentStatusEnum.PAID, todayStart, todayEnd);
+                                .sumRevenueByDateRange(tid, PaymentStatusEnum.PAID, todayStart, todayEnd);
 
-                // ===== 3. Tuần hiện tại =====
                 LocalDate firstDayOfWeek = today.with(DayOfWeek.MONDAY);
                 Instant weekStart = firstDayOfWeek.atStartOfDay(zone).toInstant();
 
                 BigDecimal weekRevenue = paymentRepository
-                                .sumRevenueByDateRange(PaymentStatusEnum.PAID, weekStart, todayEnd);
+                                .sumRevenueByDateRange(tid, PaymentStatusEnum.PAID, weekStart, todayEnd);
 
-                // ===== 4. Tháng hiện tại =====
                 LocalDate firstDayOfMonth = today.with(TemporalAdjusters.firstDayOfMonth());
                 Instant monthStart = firstDayOfMonth.atStartOfDay(zone).toInstant();
 
                 BigDecimal monthRevenue = paymentRepository
-                                .sumRevenueByDateRange(PaymentStatusEnum.PAID, monthStart, todayEnd);
+                                .sumRevenueByDateRange(tid, PaymentStatusEnum.PAID, monthStart, todayEnd);
 
-                // ===== 5. Revenue by Date =====
                 List<RevenuePointDTO> revenueByDate = paymentRepository
-                                .revenueGroupedByDate(PaymentStatusEnum.PAID, start, end)
+                                .revenueGroupedByDate(tid, PaymentStatusEnum.PAID, start, end)
                                 .stream()
                                 .map(row -> RevenuePointDTO.builder()
                                                 .label(row[0].toString())
@@ -74,9 +72,8 @@ public class RevenueService {
                                                 .build())
                                 .toList();
 
-                // ===== 6. Revenue by Pitch =====
                 List<RevenueByPitchDTO> revenueByPitch = paymentRepository
-                                .revenueGroupedByPitch(PaymentStatusEnum.PAID, start, end)
+                                .revenueGroupedByPitch(tid, PaymentStatusEnum.PAID, start, end)
                                 .stream()
                                 .map(row -> RevenueByPitchDTO.builder()
                                                 .pitchId((Long) row[0])
@@ -91,13 +88,13 @@ public class RevenueService {
                                 .weekRevenue(weekRevenue)
                                 .monthRevenue(monthRevenue)
                                 .totalBookings(
-                                                bookingRepository.countByDeletedByUserFalse())
+                                                bookingRepository.countByDeletedByUserFalseAndTenantId(tid))
                                 .paidBookings(
-                                                bookingRepository.countByStatus(BookingStatusEnum.PAID))
+                                                bookingRepository.countByStatusAndTenantId(BookingStatusEnum.PAID, tid))
                                 .cancelledBookings(
-                                                bookingRepository.countByStatus(BookingStatusEnum.CANCELLED))
+                                                bookingRepository.countByStatusAndTenantId(BookingStatusEnum.CANCELLED, tid))
                                 .totalUsers(userRepository.count())
-                                .totalPitches(pitchRepository.count())
+                                .totalPitches(pitchRepository.countByTenantId(tid))
                                 .revenueByDate(revenueByDate)
                                 .revenueByPitch(revenueByPitch)
                                 .build();

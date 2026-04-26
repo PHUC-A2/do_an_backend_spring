@@ -2,6 +2,7 @@ package com.example.backend.domain.entity;
 
 import java.time.Instant;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.constant.ai.AiProviderEnum;
 
 import jakarta.persistence.*;
@@ -10,7 +11,7 @@ import lombok.*;
 @Entity
 @Table(name = "ai_api_keys")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
-public class AiApiKey {
+public class AiApiKey extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

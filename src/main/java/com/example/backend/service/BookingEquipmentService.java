@@ -26,6 +26,7 @@ import com.example.backend.repository.BookingEquipmentRepository;
 import com.example.backend.repository.EquipmentBorrowLogRepository;
 import com.example.backend.repository.EquipmentRepository;
 import com.example.backend.repository.PitchEquipmentRepository;
+import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 import com.example.backend.util.constant.equipment.EquipmentBorrowLogTypeEnum;
 import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
@@ -497,7 +498,8 @@ public class BookingEquipmentService {
     }
 
     public List<ResBookingEquipmentDTO> getAll() {
-        return bookingEquipmentRepository.findAll()
+        long tid = TenantContext.requireCurrentTenantId();
+        return bookingEquipmentRepository.findAllByTenantId(tid)
                 .stream()
                 .map(this::convertToResDTO)
                 .collect(Collectors.toList());

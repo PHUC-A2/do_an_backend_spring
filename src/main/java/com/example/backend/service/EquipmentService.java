@@ -20,6 +20,8 @@ import com.example.backend.domain.response.equipment.ResEquipmentDTO;
 import com.example.backend.domain.response.equipment.ResEquipmentPitchAssignmentDTO;
 import com.example.backend.repository.EquipmentRepository;
 import com.example.backend.repository.PitchEquipmentRepository;
+import com.example.backend.tenant.TenantContext;
+import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
 @Service
@@ -45,13 +47,17 @@ public class EquipmentService {
         equipment.setStatus(req.getStatus() != null ? req.getStatus()
                 : com.example.backend.util.constant.equipment.EquipmentStatusEnum.ACTIVE);
         equipment.setConditionNote(req.getConditionNote());
+        equipment.setTenantId(TenantContext.requireCurrentTenantId());
 
         Equipment saved = equipmentRepository.save(equipment);
         return convertToResEquipmentDTO(saved);
     }
 
     public ResultPaginationDTO getAllEquipments(Specification<Equipment> spec, @NonNull Pageable pageable) {
-        Page<Equipment> page = equipmentRepository.findAll(spec, pageable);
+        long tId = TenantContext.requireCurrentTenantId();
+        Specification<Equipment> tenantSpec = (root, q, cb) -> cb.equal(root.get("tenantId"), tId);
+        Specification<Equipment> combined = spec == null ? tenantSpec : spec.and(tenantSpec);
+        Page<Equipment> page = equipmentRepository.findAll(combined, pageable);
 
         ResultPaginationDTO rs = new ResultPaginationDTO();
         ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
@@ -71,9 +77,15 @@ public class EquipmentService {
 
     public Equipment getEquipmentById(@NonNull Long id) throws IdInvalidException {
         Optional<Equipment> opt = equipmentRepository.findById(id);
-        if (opt.isPresent())
-            return opt.get();
-        throw new IdInvalidException("Không tìm thấy thiết bị với ID = " + id);
+        if (opt.isEmpty()) {
+            throw new IdInvalidException("Không tìm thấy thiết bị với ID = " + id);
+        }
+        Equipment e = opt.get();
+        Optional<Long> ctx = TenantContext.getCurrentTenantId();
+        if (ctx.isPresent() && e.getTenantId() != null && !e.getTenantId().equals(ctx.get())) {
+            throw new BadRequestException("Thiết bị không thuộc tenant hiện tại");
+        }
+        return e;
     }
 
     /**

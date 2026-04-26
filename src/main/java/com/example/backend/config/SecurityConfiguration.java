@@ -18,9 +18,13 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 import com.example.backend.config.security.AccessTokenValidatorGrantedAuthoritiesConverter;
+import com.example.backend.repository.TenantRepository;
+import com.example.backend.service.SubscriptionService;
+import com.example.backend.service.TenantService;
 import com.example.backend.util.SecurityUtil;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.util.Base64;
@@ -38,10 +42,19 @@ public class SecurityConfiguration {
         }
 
         @Bean
+        public TenantContextFilter tenantContextFilter(
+                        TenantService tenantService,
+                        TenantRepository tenantRepository,
+                        SubscriptionService subscriptionService) {
+                return new TenantContextFilter(tenantService, tenantRepository, subscriptionService);
+        }
+
+        @Bean
         public SecurityFilterChain filterChain(
                         HttpSecurity http,
                         CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
-                        CustomAccessDeniedHandler customAccessDeniedHandler) throws Exception {
+                        CustomAccessDeniedHandler customAccessDeniedHandler,
+                        TenantContextFilter tenantContextFilter) throws Exception {
 
                 String[] whiteList = {
                                 "/",
@@ -84,7 +97,8 @@ public class SecurityConfiguration {
                                                 .accessDeniedHandler(customAccessDeniedHandler))
                                 .formLogin(f -> f.disable())
                                 .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                .addFilterAfter(tenantContextFilter, BearerTokenAuthenticationFilter.class);
 
                 return http.build();
         }

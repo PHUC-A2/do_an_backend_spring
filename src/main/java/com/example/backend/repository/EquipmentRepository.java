@@ -11,4 +11,8 @@ import com.example.backend.util.constant.equipment.EquipmentStatusEnum;
 public interface EquipmentRepository extends JpaRepository<Equipment, Long>, JpaSpecificationExecutor<Equipment> {
 
     long countByStatus(EquipmentStatusEnum status);
+
+    long countByTenantId(long tenantId);
+
+    long countByStatusAndTenantId(EquipmentStatusEnum status, long tenantId);
 }

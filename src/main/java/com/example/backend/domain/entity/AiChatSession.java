@@ -2,13 +2,15 @@ package com.example.backend.domain.entity;
 
 import java.time.Instant;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
+
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Table(name = "ai_chat_sessions")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor
-public class AiChatSession {
+public class AiChatSession extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -3,6 +3,7 @@ package com.example.backend.domain.entity;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.constant.support.SupportIssueSeverityEnum;
 
 import jakarta.persistence.CollectionTable;
@@ -30,8 +31,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class SupportIssueGuide {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class SupportIssueGuide extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,6 @@
 package com.example.backend.domain.entity;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 import com.example.backend.util.constant.equipment.EquipmentMobilityEnum;
 
@@ -26,8 +27,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class BookingEquipment {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class BookingEquipment extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

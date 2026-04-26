@@ -3,6 +3,8 @@ package com.example.backend.domain.entity;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -23,7 +25,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PitchHourlyPrice {
+public class PitchHourlyPrice extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

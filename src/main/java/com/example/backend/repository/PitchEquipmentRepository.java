@@ -13,6 +13,8 @@ import com.example.backend.domain.entity.PitchEquipment;
 @Repository
 public interface PitchEquipmentRepository extends JpaRepository<PitchEquipment, Long> {
 
+    long countByTenantId(long tenantId);
+
     List<PitchEquipment> findByPitchIdOrderByIdAsc(Long pitchId);
 
     @Query("SELECT COALESCE(SUM(pe.quantity), 0) FROM PitchEquipment pe WHERE pe.equipment.id = :equipmentId")

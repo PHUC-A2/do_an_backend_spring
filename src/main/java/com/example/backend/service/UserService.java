@@ -11,8 +11,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.util.StringUtils;
 import com.example.backend.domain.entity.Role;
@@ -34,7 +36,11 @@ import com.example.backend.domain.response.user.ResUpdateUserDTO;
 import com.example.backend.domain.response.user.ResUserDetailDTO;
 import com.example.backend.domain.response.user.ResUserListDTO;
 import com.example.backend.repository.RoleRepository;
+import com.example.backend.repository.TenantUserRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.tenant.TenantContext;
+import com.example.backend.util.RoleSecurityUtil;
+import com.example.backend.util.SecurityRbac;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
 import com.example.backend.util.constant.user.UserStatusEnum;
@@ -48,12 +54,26 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleRepository roleRepository;
+    private final TenantUserRepository tenantUserRepository;
 
     public UserService(UserRepository userRepository,
-            PasswordEncoder passwordEncoder, RoleRepository roleRepository) {
+            PasswordEncoder passwordEncoder,
+            RoleRepository roleRepository,
+            TenantUserRepository tenantUserRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleRepository = roleRepository;
+        this.tenantUserRepository = tenantUserRepository;
+    }
+
+    private void requireTenantAccessToUserIfNotAll(long userId) {
+        if (SecurityRbac.hasAllAuthority()) {
+            return;
+        }
+        long tid = TenantContext.requireCurrentTenantId();
+        if (!tenantUserRepository.existsByUser_IdAndTenant_Id(userId, tid)) {
+            throw new AccessDeniedException("Tài khoản không thuộc tenant đang chọn");
+        }
     }
 
     public ResCreateUserDTO createUser(ReqCreateUserDTO req)
@@ -67,7 +87,7 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(req.getPassword()));
 
         // Lấy role VIEW và gắn mặc định
-        Role viewRole = this.roleRepository.findByName("VIEW");
+        Role viewRole = this.roleRepository.findByNameAndTenantIsNull("VIEW").orElse(null);
         if (viewRole != null) {
             Set<Role> roles = new HashSet<>();
             roles.add(viewRole);
@@ -92,6 +112,15 @@ public class UserService {
         if (status != null) {
             Specification<User> statusSpec = (root, query, cb) -> cb.equal(root.get("status"), status);
             finalSpec = finalSpec == null ? statusSpec : finalSpec.and(statusSpec);
+        }
+
+        if (!SecurityRbac.hasAllAuthority()) {
+            long tid = TenantContext.requireCurrentTenantId();
+            List<Long> uids = tenantUserRepository.findUserIdsByTenantId(tid);
+            Specification<User> inTenant = uids.isEmpty()
+                    ? (root, query, cb) -> cb.disjunction()
+                    : (root, query, cb) -> root.get("id").in(uids);
+            finalSpec = finalSpec == null ? inTenant : finalSpec.and(inTenant);
         }
 
         Page<User> pageUser = this.userRepository.findAll(finalSpec, pageable);
@@ -125,8 +154,10 @@ public class UserService {
     // }
 
     public User getUserById(Long id) throws IdInvalidException {
-        return userRepository.findWithRolesAndPermissionsById(id)
+        User user = userRepository.findWithRolesAndPermissionsById(id)
                 .orElseThrow(() -> new IdInvalidException("Không tìm thấy User với ID = " + id));
+        requireTenantAccessToUserIfNotAll(user.getId());
+        return user;
     }
 
     public ResUpdateUserDTO updateUser(Long id, ReqUpdateUserDTO req)
@@ -218,6 +249,7 @@ public class UserService {
                         .map(role -> {
                             ResRoleNestedDTO roleDTO = new ResRoleNestedDTO();
                             roleDTO.setId(role.getId());
+                            roleDTO.setTenantId(role.getTenant() == null ? null : role.getTenant().getId());
                             roleDTO.setName(role.getName());
                             roleDTO.setDescription(role.getDescription());
 
@@ -252,6 +284,7 @@ public class UserService {
                         .map(role -> {
                             ResRoleNestedDetailDTO roleDTO = new ResRoleNestedDetailDTO();
                             roleDTO.setId(role.getId());
+                            roleDTO.setTenantId(role.getTenant() == null ? null : role.getTenant().getId());
                             roleDTO.setName(role.getName());
                             roleDTO.setDescription(role.getDescription());
 
@@ -316,6 +349,7 @@ public class UserService {
     }
 
     // gắn role cho user
+    @Transactional
     public ResUserListDTO assignRolesToUser(
             @NonNull Long userId,
             List<Long> roleIds) throws IdInvalidException {
@@ -325,9 +359,8 @@ public class UserService {
         // throw new IdInvalidException("roleIds không được null");
         // }
 
-        // 2. Check user tồn tại
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IdInvalidException("Không tìm thấy user với id = " + userId));
+        // 2. Check user tồn tại + thuộc tenant (khi không phải ALL)
+        User user = this.getUserById(userId);
 
         // 3. Clear roles
         if (roleIds.isEmpty()) {
@@ -341,6 +374,12 @@ public class UserService {
         if (roles.size() != roleIds.size()) {
             throw new IdInvalidException("Có role không tồn tại");
         }
+        for (Role r : roles) {
+            if (r.getTenant() != null) {
+                r.getTenant().getId();
+            }
+        }
+        assertRolesAssignableInCurrentContext(roles);
 
         // 5. Sync (giống Laravel sync)
         user.getRoles().clear();
@@ -348,6 +387,27 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
         return this.convertToResUserListDTO(savedUser);
+    }
+
+    private void assertRolesAssignableInCurrentContext(List<Role> roles) {
+        if (SecurityRbac.hasAllAuthority()) {
+            return;
+        }
+        long tid = TenantContext.requireCurrentTenantId();
+        for (Role r : roles) {
+            if (r.getTenant() == null) {
+                if (RoleSecurityUtil.isGlobalSystemViewRole(r)) {
+                    continue;
+                }
+                if (RoleSecurityUtil.isGlobalSystemAllRole(r)) {
+                    throw new BadRequestException("Không gán role quản trị hệ thống (ADMIN) cho tài khoản tenant");
+                }
+                throw new BadRequestException("Không gán role hệ thống \"" + r.getName() + "\" từ ngữ cảnh shop");
+            }
+            if (r.getTenant().getId() != tid) {
+                throw new BadRequestException("Role \"" + r.getName() + "\" không thuộc tenant đang chọn");
+            }
+        }
     }
 
     // res update account
@@ -430,9 +490,9 @@ public class UserService {
                 throw new BadRequestException("Không thể khóa chính mình");
             }
 
-            boolean isTargetAdmin = user.getRoles().stream().anyMatch(r -> "ADMIN".equals(r.getName()));
-            if (isTargetAdmin) {
-                throw new BadRequestException("Không thể khóa tài khoản ADMIN");
+            boolean isTargetSystemAdmin = user.getRoles().stream().anyMatch(RoleSecurityUtil::isGlobalSystemAllRole);
+            if (isTargetSystemAdmin) {
+                throw new BadRequestException("Không thể khóa tài khoản quản trị hệ thống (ADMIN toàn hệ thống)");
             }
 
             user.setStatus(UserStatusEnum.BANNED);

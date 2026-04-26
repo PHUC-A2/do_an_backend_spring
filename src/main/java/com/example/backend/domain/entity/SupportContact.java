@@ -1,5 +1,7 @@
 package com.example.backend.domain.entity;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -18,8 +20,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class SupportContact {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class SupportContact extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -2,6 +2,8 @@ package com.example.backend.domain.entity;
 
 import java.time.Instant;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,7 +23,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class MessengerConfig {
+public class MessengerConfig extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

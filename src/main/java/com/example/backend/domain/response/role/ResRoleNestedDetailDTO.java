@@ -13,6 +13,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ResRoleNestedDetailDTO {
     private Long id;
+    /** null: role toàn hệ thống; non-null: thuộc shop. */
+    private Long tenantId;
     private String name;
     private String description;
 

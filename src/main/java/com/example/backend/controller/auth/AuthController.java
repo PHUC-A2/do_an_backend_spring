@@ -17,6 +17,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -35,6 +36,7 @@ import com.example.backend.domain.request.auth.ReqLoginDTO;
 import com.example.backend.domain.request.auth.ReqResendOtpByEmailDTO;
 import com.example.backend.domain.request.auth.ReqResendOtpDTO;
 import com.example.backend.domain.request.auth.ReqRegisterDTO;
+import com.example.backend.domain.request.auth.ReqSwitchTenantDTO;
 import com.example.backend.domain.request.auth.ReqVerifyEmailDTO;
 import com.example.backend.domain.request.auth.resetpw.ReqForgotPasswordDTO;
 import com.example.backend.domain.request.auth.resetpw.ReqResetPasswordDTO;
@@ -46,14 +48,18 @@ import com.example.backend.domain.response.common.RestResponse;
 import com.example.backend.domain.response.login.JwtUserDTO;
 import com.example.backend.domain.response.login.LoginUserDTO;
 import com.example.backend.domain.response.login.ResLoginDTO;
+import com.example.backend.domain.response.login.ResTenantDTO;
 import com.example.backend.domain.response.permission.ResPermissionNestedDTO;
 import com.example.backend.domain.response.role.ResRoleNestedDetailDTO;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.service.AuthService;
 import com.example.backend.service.EmailService;
+import com.example.backend.service.SubscriptionService;
+import com.example.backend.service.TenantService;
 import com.example.backend.service.UserService;
 import com.example.backend.service.paymentpin.PaymentConfirmationPinService;
 import com.example.backend.service.paymentpin.SecuritySettingsService;
+import com.example.backend.util.RoleSecurityUtil;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.annotation.ApiMessage;
 import com.example.backend.util.constant.user.NotificationSoundPresetEnum;
@@ -77,6 +83,8 @@ public class AuthController {
         private final EmailService emailService;
         private final PaymentConfirmationPinService paymentConfirmationPinService;
         private final SecuritySettingsService securitySettingsService;
+        private final TenantService tenantService;
+        private final SubscriptionService subscriptionService;
 
         @Value("${backend.jwt.refresh-token-validity-in-second}")
         private long refreshTokenExpiration;
@@ -90,7 +98,9 @@ public class AuthController {
                         AuthService authService,
                         EmailService emailService,
                         PaymentConfirmationPinService paymentConfirmationPinService,
-                        SecuritySettingsService securitySettingsService) {
+                        SecuritySettingsService securitySettingsService,
+                        TenantService tenantService,
+                        SubscriptionService subscriptionService) {
 
                 this.authenticationManagerBuilder = authenticationManagerBuilder;
                 this.securityUtil = securityUtil;
@@ -101,6 +111,8 @@ public class AuthController {
                 this.emailService = emailService;
                 this.paymentConfirmationPinService = paymentConfirmationPinService;
                 this.securitySettingsService = securitySettingsService;
+                this.tenantService = tenantService;
+                this.subscriptionService = subscriptionService;
         }
 
         @PostMapping("/auth/login")
@@ -147,27 +159,11 @@ public class AuthController {
                         res.setUser(loginUser);
 
                         // 7. DTO dùng để nhúng vào JWT (token)
-                        // DTO này KHÔNG liên quan đến response
-                        JwtUserDTO jwtUser = new JwtUserDTO(
-                                        currentUserDB.getId(),
-                                        currentUserDB.getEmail(),
-                                        currentUserDB.getName());
-
-                        // 8. Kiểm tra role
-                        List<String> authorities;
-
-                        boolean isAdmin = currentUserDB.getRoles().stream()
-                                        .anyMatch(r -> r.getName().equals("ADMIN"));
-
-                        if (isAdmin) {
-                                authorities = List.of("ALL"); // ADMIN FULL QUYỀN
-                        } else {
-                                authorities = currentUserDB.getRoles().stream()
-                                                .flatMap(r -> r.getPermissions().stream())
-                                                .map(p -> p.getName())
-                                                .distinct()
-                                                .toList();
-                        }
+                        Long currentTenantId = tenantService.resolveTenantIdForLogin(currentUserDB);
+                        List<String> authorities = subscriptionService.resolveAuthorityNamesForToken(currentUserDB,
+                                        currentTenantId);
+                        JwtUserDTO jwtUser = buildJwtUser(currentUserDB, currentTenantId, authorities);
+                        res.setCurrentTenantId(currentTenantId);
 
                         // 8.1 Tạo access token
                         String accessToken = securityUtil.createAccessToken(
@@ -215,6 +211,10 @@ public class AuthController {
                 User user = userService.handleGetUserByUsername(email);
 
                 AccountUserDTO accountUser = new AccountUserDTO();
+                accountUser.setLinkedTenantCount(
+                                (int) tenantService.listTenantsForUser(user.getId()).stream()
+                                                .filter(t -> t.getId() != com.example.backend.service.TenantService.DEFAULT_TENANT_ID)
+                                                .count());
                 accountUser.setId(user.getId());
                 accountUser.setName(user.getName());
                 accountUser.setFullName(user.getFullName());
@@ -240,6 +240,8 @@ public class AuthController {
                                                 .map(role -> {
                                                         ResRoleNestedDetailDTO roleDTO = new ResRoleNestedDetailDTO();
                                                         roleDTO.setId(role.getId());
+                                                        roleDTO.setTenantId(role.getTenant() == null ? null
+                                                                        : role.getTenant().getId());
                                                         roleDTO.setName(role.getName());
                                                         roleDTO.setDescription(role.getDescription());
 
@@ -258,6 +260,27 @@ public class AuthController {
                                                         return roleDTO;
                                                 })
                                                 .toList());
+
+                Long tidFromToken = null;
+                Authentication authn = SecurityContextHolder.getContext().getAuthentication();
+                if (authn instanceof JwtAuthenticationToken jat) {
+                        tidFromToken = readTenantIdFromUserClaimInJwt(jat.getToken());
+                }
+                long effTid = tidFromToken != null ? tidFromToken : tenantService.resolveTenantIdForLogin(user);
+                if (!currentAuthenticationHasAnyAuthority("ALL")
+                                && effTid == com.example.backend.service.SubscriptionService.DEFAULT_TENANT_ID) {
+                        effTid = tenantService.preferredNonSystemShopTenantId(user.getId())
+                                        .orElse(effTid);
+                }
+                List<String> eff = subscriptionService.resolveAuthorityNamesForToken(user, effTid);
+                accountUser.setEffectivePermissionNames(eff);
+                accountUser.setCurrentPlan(subscriptionService.resolvePlanNameForToken(user, effTid));
+                if (effTid == SubscriptionService.DEFAULT_TENANT_ID) {
+                        accountUser.setSubscriptionActive(true);
+                } else {
+                        accountUser.setSubscriptionActive(subscriptionService.isTenantSubscriptionActive(effTid));
+                }
+                subscriptionService.getActiveSubscription(effTid).ifPresent(s -> accountUser.setSubscriptionEndAt(s.getEndDate()));
 
                 ResAccountDTO res = new ResAccountDTO();
                 res.setUser(accountUser);
@@ -353,31 +376,27 @@ public class AuthController {
                         // 7. DTO trả về cho client
                         LoginUserDTO loginUser = new LoginUserDTO(
                                         currentUserDB.getId(),
-                                        currentUserDB.getEmail(),
-                                        currentUserDB.getName());
+                                        currentUserDB.getName(),
+                                        currentUserDB.getEmail());
                         res.setUser(loginUser);
 
-                        // 8. DTO nhúng vào JWT
-                        JwtUserDTO jwtUser = new JwtUserDTO(
-                                        currentUserDB.getId(),
-                                        currentUserDB.getEmail(),
-                                        currentUserDB.getName());
-
-                        // 9. Kiểm tra role
-                        List<String> authorities;
-
-                        boolean isAdmin = currentUserDB.getRoles().stream()
-                                        .anyMatch(r -> r.getName().equals("ADMIN"));
-
-                        if (isAdmin) {
-                                authorities = List.of("ALL"); // 👈 ADMIN FULL QUYỀN
-                        } else {
-                                authorities = currentUserDB.getRoles().stream()
-                                                .flatMap(r -> r.getPermissions().stream())
-                                                .map(p -> p.getName())
-                                                .distinct()
-                                                .toList();
+                        // 8. DTO nhúng vào JWT — giữ tenant từ refresh token nếu có
+                        Long fromRefresh = readTenantIdFromUserClaimInJwt(decodedToken);
+                        Long currentTenantId = fromRefresh != null
+                                        ? fromRefresh
+                                        : tenantService.resolveTenantIdForLogin(currentUserDB);
+                        boolean isSystemUser = currentUserDB.getRoles() != null
+                                        && currentUserDB.getRoles().stream()
+                                                        .anyMatch(RoleSecurityUtil::isGlobalSystemAllRole);
+                        if (!isSystemUser && currentTenantId != null
+                                        && currentTenantId.longValue() == com.example.backend.service.SubscriptionService.DEFAULT_TENANT_ID) {
+                                currentTenantId = tenantService.preferredNonSystemShopTenantId(currentUserDB.getId())
+                                                .orElse(currentTenantId);
                         }
+                        List<String> authorities = subscriptionService.resolveAuthorityNamesForToken(currentUserDB,
+                                        currentTenantId);
+                        JwtUserDTO jwtUser = buildJwtUser(currentUserDB, currentTenantId, authorities);
+                        res.setCurrentTenantId(currentTenantId);
 
                         // 9. Tạo access token mới
                         String newAccessToken = securityUtil.createAccessToken(
@@ -458,7 +477,7 @@ public class AuthController {
                 user.setStatus(UserStatusEnum.PENDING_VERIFICATION);
 
                 // Lấy role VIEW và gắn mặc định
-                Role viewRole = this.roleRepository.findByName("VIEW");
+                Role viewRole = this.roleRepository.findByNameAndTenantIsNull("VIEW").orElse(null);
                 if (viewRole != null) {
                         Set<Role> roles = new HashSet<>();
                         roles.add(viewRole);
@@ -466,6 +485,9 @@ public class AuthController {
                 }
 
                 User savedUser = this.userService.createUserForRegister(user);
+                if (dto.getShopName() != null && !dto.getShopName().isBlank()) {
+                        tenantService.createOwnerTenantForUser(savedUser.getId(), dto.getShopName());
+                }
                 this.authService.sendEmailVerificationOtp(savedUser.getId(), savedUser.getEmail());
 
                 return ResponseEntity.status(HttpStatus.CREATED)
@@ -575,6 +597,100 @@ public class AuthController {
                         }
                 }
                 return false;
+        }
+
+        @GetMapping("/auth/tenants")
+        @ApiMessage("Danh sách tenant của tài khoản")
+        public ResponseEntity<List<ResTenantDTO>> listMyTenants() {
+                String email = SecurityUtil.getCurrentUserLogin()
+                                .orElseThrow(() -> new BadRequestException("Chưa đăng nhập"));
+                User user = userService.handleGetUserByUsername(email);
+                var stream = tenantService.listTenantsForUser(user.getId()).stream();
+                if (!currentAuthenticationHasAnyAuthority("ALL")) {
+                        stream = stream.filter(t -> t.getId() != com.example.backend.service.TenantService.DEFAULT_TENANT_ID);
+                }
+                List<ResTenantDTO> list = stream
+                                .map(t -> {
+                                        ResTenantDTO r = new ResTenantDTO();
+                                        r.setId(t.getId());
+                                        r.setSlug(t.getSlug());
+                                        r.setName(t.getName());
+                                        r.setStatus(t.getStatus().name());
+                                        return r;
+                                })
+                                .toList();
+                return ResponseEntity.ok(list);
+        }
+
+        @PostMapping("/auth/switch-tenant")
+        @ApiMessage("Đổi tenant (cấp token mới)")
+        public ResponseEntity<ResLoginDTO> switchTenant(@Valid @RequestBody ReqSwitchTenantDTO dto) {
+                String email = SecurityUtil.getCurrentUserLogin()
+                                .orElseThrow(() -> new BadRequestException("Chưa đăng nhập"));
+                User currentUserDB = userService.handleGetUserByUsername(email);
+                if (!tenantService.isUserInTenant(currentUserDB.getId(), dto.getTenantId())) {
+                        throw new BadRequestException("Bạn không thuộc tenant này");
+                }
+                if (!currentAuthenticationHasAnyAuthority("ALL")
+                                && dto.getTenantId() != null
+                                && dto.getTenantId()
+                                                .longValue() == com.example.backend.service.TenantService.DEFAULT_TENANT_ID) {
+                        throw new BadRequestException(
+                                        "Ngữ cảnh hệ thống (mặc định) chỉ dành cho quản trị hệ thống. Vui lòng chọn cửa hàng.");
+                }
+                Long tid = dto.getTenantId();
+                List<String> authorities = subscriptionService.resolveAuthorityNamesForToken(currentUserDB, tid);
+                JwtUserDTO jwtUser = buildJwtUser(currentUserDB, tid, authorities);
+
+                String accessToken = securityUtil.createAccessToken(email, jwtUser, authorities);
+                String refreshToken = securityUtil.createRefreshToken(email, jwtUser);
+                userService.updateUserToken(refreshToken, email);
+
+                ResLoginDTO res = new ResLoginDTO();
+                res.setAccessToken(accessToken);
+                res.setUser(new LoginUserDTO(
+                                currentUserDB.getId(),
+                                currentUserDB.getName(),
+                                currentUserDB.getEmail()));
+                res.setCurrentTenantId(tid);
+
+                ResponseCookie resCookies = ResponseCookie
+                                .from("refresh_token", refreshToken)
+                                .httpOnly(true)
+                                .secure(false)
+                                .sameSite("Lax")
+                                .path("/")
+                                .maxAge(refreshTokenExpiration)
+                                .build();
+
+                return ResponseEntity.ok()
+                                .header(HttpHeaders.SET_COOKIE, resCookies.toString())
+                                .body(res);
+        }
+
+        private JwtUserDTO buildJwtUser(User u, Long tenantId, List<String> authorities) {
+                JwtUserDTO j = new JwtUserDTO();
+                j.setId(u.getId());
+                j.setEmail(u.getEmail());
+                j.setName(u.getName());
+                j.setTenantId(tenantId);
+                j.setPlan(subscriptionService.resolvePlanNameForToken(u, tenantId));
+                j.setPermissions(new java.util.ArrayList<>(authorities));
+                return j;
+        }
+
+        private static Long readTenantIdFromUserClaimInJwt(Jwt jwt) {
+                if (jwt == null) {
+                        return null;
+                }
+                Object u = jwt.getClaim("user");
+                if (u instanceof Map<?, ?> m) {
+                        Object t = m.get("tenantId");
+                        if (t instanceof Number n) {
+                                return n.longValue();
+                        }
+                }
+                return null;
         }
 
 }

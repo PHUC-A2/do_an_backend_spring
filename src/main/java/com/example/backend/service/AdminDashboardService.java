@@ -22,6 +22,8 @@ import com.example.backend.repository.ReviewMessageRepository;
 import com.example.backend.repository.ReviewRepository;
 import com.example.backend.repository.RoleRepository;
 import com.example.backend.repository.UserRepository;
+import com.example.backend.tenant.TenantContext;
+import com.example.backend.util.SecurityRbac;
 import com.example.backend.util.constant.booking.BookingEquipmentStatusEnum;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.equipment.EquipmentStatusEnum;
@@ -33,7 +35,7 @@ import com.example.backend.util.constant.user.UserStatusEnum;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Gom số liệu thống kê toàn hệ thống phục vụ dashboard admin.
+ * Thống kê dashboard admin theo tenant hiện tại (user/role/permission vẫn toàn cục).
  */
 @Service
 @RequiredArgsConstructor
@@ -57,7 +59,17 @@ public class AdminDashboardService {
     private final AiChatSessionRepository aiChatSessionRepository;
 
     public ResAdminSystemOverviewDTO getSystemOverview() {
-        BigDecimal pendingAmt = paymentRepository.sumAmountByStatus(PaymentStatusEnum.PENDING);
+        long tid = TenantContext.requireCurrentTenantId();
+        long rolesTotal;
+        if (SecurityRbac.hasAllAuthority()) {
+            rolesTotal = roleRepository.count();
+        } else {
+            long inShop = roleRepository.countByTenant_Id(tid);
+            long withView = roleRepository.existsByNameAndTenantIsNull("VIEW") ? 1L : 0L;
+            rolesTotal = inShop + withView;
+        }
+
+        BigDecimal pendingAmt = paymentRepository.sumAmountByStatusAndTenantId(tid, PaymentStatusEnum.PENDING);
         if (pendingAmt == null) {
             pendingAmt = BigDecimal.ZERO;
         }
@@ -70,45 +82,45 @@ public class AdminDashboardService {
                 .usersPendingVerification(userRepository.countByStatus(UserStatusEnum.PENDING_VERIFICATION))
                 .usersBanned(userRepository.countByStatus(UserStatusEnum.BANNED))
                 .usersDeleted(userRepository.countByStatus(UserStatusEnum.DELETED))
-                .bookingsTotalVisible(bookingRepository.countByDeletedByUserFalse())
-                .bookingsPending(bookingRepository.countByDeletedByUserFalseAndStatus(BookingStatusEnum.PENDING))
-                .bookingsActive(bookingRepository.countByDeletedByUserFalseAndStatus(BookingStatusEnum.ACTIVE))
-                .bookingsPaidStatus(bookingRepository.countByDeletedByUserFalseAndStatus(BookingStatusEnum.PAID))
-                .bookingsCancelled(bookingRepository.countByDeletedByUserFalseAndStatus(BookingStatusEnum.CANCELLED))
-                .paymentsTotal(paymentRepository.count())
-                .paymentsPendingCount(paymentRepository.countByStatus(PaymentStatusEnum.PENDING))
-                .paymentsPaidCount(paymentRepository.countByStatus(PaymentStatusEnum.PAID))
-                .paymentsCancelledCount(paymentRepository.countByStatus(PaymentStatusEnum.CANCELLED))
+                .bookingsTotalVisible(bookingRepository.countByDeletedByUserFalseAndTenantId(tid))
+                .bookingsPending(bookingRepository.countByDeletedByUserFalseAndStatusAndTenantId(BookingStatusEnum.PENDING, tid))
+                .bookingsActive(bookingRepository.countByDeletedByUserFalseAndStatusAndTenantId(BookingStatusEnum.ACTIVE, tid))
+                .bookingsPaidStatus(bookingRepository.countByDeletedByUserFalseAndStatusAndTenantId(BookingStatusEnum.PAID, tid))
+                .bookingsCancelled(bookingRepository.countByDeletedByUserFalseAndStatusAndTenantId(BookingStatusEnum.CANCELLED, tid))
+                .paymentsTotal(paymentRepository.countByTenantId(tid))
+                .paymentsPendingCount(paymentRepository.countByStatusAndTenantId(PaymentStatusEnum.PENDING, tid))
+                .paymentsPaidCount(paymentRepository.countByStatusAndTenantId(PaymentStatusEnum.PAID, tid))
+                .paymentsCancelledCount(paymentRepository.countByStatusAndTenantId(PaymentStatusEnum.CANCELLED, tid))
                 .paymentsPendingAmount(pendingAmt)
-                .pitchesTotal(pitchRepository.count())
-                .pitchesActive(pitchRepository.countByStatus(PitchStatusEnum.ACTIVE))
-                .pitchesMaintenance(pitchRepository.countByStatus(PitchStatusEnum.MAINTENANCE))
-                .equipmentsTotal(equipmentRepository.count())
-                .equipmentsActive(equipmentRepository.countByStatus(EquipmentStatusEnum.ACTIVE))
-                .equipmentsMaintenance(equipmentRepository.countByStatus(EquipmentStatusEnum.MAINTENANCE))
-                .equipmentsInactive(equipmentRepository.countByStatus(EquipmentStatusEnum.INACTIVE))
-                .equipmentsBroken(equipmentRepository.countByStatus(EquipmentStatusEnum.BROKEN))
-                .equipmentsLost(equipmentRepository.countByStatus(EquipmentStatusEnum.LOST))
-                .pitchEquipmentLinks(pitchEquipmentRepository.count())
-                .bookingEquipmentsTotal(bookingEquipmentRepository.count())
-                .bookingEquipmentsBorrowed(bookingEquipmentRepository.countByStatus(BookingEquipmentStatusEnum.BORROWED))
-                .bookingEquipmentsReturned(bookingEquipmentRepository.countByStatus(BookingEquipmentStatusEnum.RETURNED))
-                .bookingEquipmentsLost(bookingEquipmentRepository.countByStatus(BookingEquipmentStatusEnum.LOST))
-                .bookingEquipmentsDamaged(bookingEquipmentRepository.countByStatus(BookingEquipmentStatusEnum.DAMAGED))
-                .bookingEquipmentsAwaitingAdminConfirm(bookingEquipmentRepository.countByReturnAdminConfirmedFalse())
-                .equipmentBorrowLogsTotal(equipmentBorrowLogRepository.count())
-                .reviewsTotal(reviewRepository.count())
-                .reviewsPending(reviewRepository.countByStatus(ReviewStatusEnum.PENDING))
-                .reviewsApproved(reviewRepository.countByStatus(ReviewStatusEnum.APPROVED))
-                .reviewsHidden(reviewRepository.countByStatus(ReviewStatusEnum.HIDDEN))
+                .pitchesTotal(pitchRepository.countByTenantId(tid))
+                .pitchesActive(pitchRepository.countByStatusAndTenantId(PitchStatusEnum.ACTIVE, tid))
+                .pitchesMaintenance(pitchRepository.countByStatusAndTenantId(PitchStatusEnum.MAINTENANCE, tid))
+                .equipmentsTotal(equipmentRepository.countByTenantId(tid))
+                .equipmentsActive(equipmentRepository.countByStatusAndTenantId(EquipmentStatusEnum.ACTIVE, tid))
+                .equipmentsMaintenance(equipmentRepository.countByStatusAndTenantId(EquipmentStatusEnum.MAINTENANCE, tid))
+                .equipmentsInactive(equipmentRepository.countByStatusAndTenantId(EquipmentStatusEnum.INACTIVE, tid))
+                .equipmentsBroken(equipmentRepository.countByStatusAndTenantId(EquipmentStatusEnum.BROKEN, tid))
+                .equipmentsLost(equipmentRepository.countByStatusAndTenantId(EquipmentStatusEnum.LOST, tid))
+                .pitchEquipmentLinks(pitchEquipmentRepository.countByTenantId(tid))
+                .bookingEquipmentsTotal(bookingEquipmentRepository.countByTenantId(tid))
+                .bookingEquipmentsBorrowed(bookingEquipmentRepository.countByStatusAndTenantId(BookingEquipmentStatusEnum.BORROWED, tid))
+                .bookingEquipmentsReturned(bookingEquipmentRepository.countByStatusAndTenantId(BookingEquipmentStatusEnum.RETURNED, tid))
+                .bookingEquipmentsLost(bookingEquipmentRepository.countByStatusAndTenantId(BookingEquipmentStatusEnum.LOST, tid))
+                .bookingEquipmentsDamaged(bookingEquipmentRepository.countByStatusAndTenantId(BookingEquipmentStatusEnum.DAMAGED, tid))
+                .bookingEquipmentsAwaitingAdminConfirm(bookingEquipmentRepository.countByReturnAdminConfirmedFalseAndTenantId(tid))
+                .equipmentBorrowLogsTotal(equipmentBorrowLogRepository.countByTenantId(tid))
+                .reviewsTotal(reviewRepository.countByTenantId(tid))
+                .reviewsPending(reviewRepository.countByStatusAndTenantId(ReviewStatusEnum.PENDING, tid))
+                .reviewsApproved(reviewRepository.countByStatusAndTenantId(ReviewStatusEnum.APPROVED, tid))
+                .reviewsHidden(reviewRepository.countByStatusAndTenantId(ReviewStatusEnum.HIDDEN, tid))
                 .reviewMessagesTotal(reviewMessageRepository.count())
-                .notificationsTotal(notificationRepository.count())
-                .notificationsUnread(notificationRepository.countByIsReadFalse())
-                .rolesTotal(roleRepository.count())
+                .notificationsTotal(notificationRepository.countByTenantId(tid))
+                .notificationsUnread(notificationRepository.countByIsReadFalseAndTenantId(tid))
+                .rolesTotal(rolesTotal)
                 .permissionsTotal(permissionRepository.count())
-                .aiApiKeysTotal(aiApiKeyRepository.count())
-                .aiApiKeysActive(aiApiKeyRepository.countByActiveTrue())
-                .aiChatSessionsTotal(aiChatSessionRepository.count())
+                .aiApiKeysTotal(aiApiKeyRepository.countByTenantId(tid))
+                .aiApiKeysActive(aiApiKeyRepository.countByActiveTrueAndTenantId(tid))
+                .aiChatSessionsTotal(aiChatSessionRepository.countByTenantId(tid))
                 .build();
     }
 }

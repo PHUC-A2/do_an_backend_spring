@@ -3,6 +3,7 @@ package com.example.backend.domain.entity;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.payment.PaymentMethodEnum;
 import com.example.backend.util.constant.payment.PaymentStatusEnum;
@@ -31,8 +32,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Payment {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class Payment extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

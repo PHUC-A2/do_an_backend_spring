@@ -2,6 +2,7 @@ package com.example.backend.domain.entity;
 
 import java.time.Instant;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.constant.notification.NotificationTypeEnum;
 
 import jakarta.persistence.Column;
@@ -27,7 +28,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Notification {
+public class Notification extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

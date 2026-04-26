@@ -132,6 +132,7 @@ public class BookingService {
         booking.setDurationMinutes(durationMinutes);
         booking.setTotalPrice(totalPrice);
         booking.setStatus(requiresAdminApproval ? BookingStatusEnum.PENDING : BookingStatusEnum.ACTIVE);
+        booking.setTenantId(pitch.getTenantId());
 
         this.bookingRepository.save(booking);
 

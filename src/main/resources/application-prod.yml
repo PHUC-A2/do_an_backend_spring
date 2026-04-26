@@ -1,0 +1,23 @@
+# Bật: spring.profiles.active=prod
+# Biến môi trường: DATABASE_URL / DATABASE_USER / JWT_SECRET / ADMIN_* / UPLOAD_DIR / MAIL_*, v.v. (xem application.yml gốc)
+
+spring:
+  jpa:
+    show-sql: false
+    hibernate:
+      # prod: ưu tiên schema đã migration; nếu dùng cơ chế init như app hiện tại, để update hoặc bỏ dòng dưới
+      ddl-auto: update
+  thymeleaf:
+    cache: true
+
+logging:
+  level:
+    root: INFO
+    "[org.springframework.web]": INFO
+    "[org.springframework.security]": INFO
+    "[com.example.backend]": INFO
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: always

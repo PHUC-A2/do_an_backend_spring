@@ -28,6 +28,7 @@ import com.example.backend.domain.response.revenue.ResRevenueDashboardDTO;
 import com.example.backend.repository.AiChatSessionRepository;
 import com.example.backend.repository.BookingRepository;
 import com.example.backend.repository.PitchRepository;
+import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.constant.ai.AiProviderEnum;
 import com.example.backend.util.constant.booking.BookingStatusEnum;
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
@@ -263,7 +264,8 @@ public class AiService {
     /** Thêm danh sách sân thực tế từ DB vào prompt */
     private void appendPitchInfo(StringBuilder prompt) {
         try {
-            List<Pitch> pitches = pitchRepository.findAll();
+            long tid = TenantContext.requireCurrentTenantId();
+            List<Pitch> pitches = pitchRepository.findByTenantId(tid);
             if (pitches.isEmpty())
                 return;
 
@@ -313,7 +315,8 @@ public class AiService {
     /** Thêm thông tin sân trống hôm nay vào prompt */
     private void appendAvailablePitchesToday(StringBuilder prompt) {
         try {
-            List<Pitch> activePitches = pitchRepository.findAll().stream()
+            long tid = TenantContext.requireCurrentTenantId();
+            List<Pitch> activePitches = pitchRepository.findByTenantId(tid).stream()
                     .filter(p -> p.getStatus() == PitchStatusEnum.ACTIVE)
                     .toList();
             if (activePitches.isEmpty())

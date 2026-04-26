@@ -20,6 +20,7 @@ import com.example.backend.domain.response.systemconfig.ResPublicMessengerConfig
 import com.example.backend.repository.BankAccountConfigRepository;
 import com.example.backend.repository.EmailSenderConfigRepository;
 import com.example.backend.repository.MessengerConfigRepository;
+import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.error.BadRequestException;
 import com.example.backend.util.error.IdInvalidException;
 
@@ -34,23 +35,24 @@ public class SystemConfigService {
     private final MessengerConfigRepository messengerConfigRepository;
     private final SensitiveDataCryptoService sensitiveDataCryptoService;
 
+    private long requireTenant() {
+        return TenantContext.requireCurrentTenantId();
+    }
+
     public List<ResEmailSenderConfigDTO> getAllEmailSenderConfigs() {
-        return emailSenderConfigRepository.findAll().stream()
-                .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
+        return emailSenderConfigRepository.findByTenantIdOrderByIdDesc(requireTenant()).stream()
                 .map(this::toEmailRes)
                 .toList();
     }
 
     public List<ResBankAccountConfigDTO> getAllBankAccountConfigs() {
-        return bankAccountConfigRepository.findAll().stream()
-                .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
+        return bankAccountConfigRepository.findByTenantIdOrderByIdDesc(requireTenant()).stream()
                 .map(this::toBankRes)
                 .toList();
     }
 
     public List<ResMessengerConfigDTO> getAllMessengerConfigs() {
-        return messengerConfigRepository.findAll().stream()
-                .sorted((a, b) -> Long.compare(b.getId(), a.getId()))
+        return messengerConfigRepository.findByTenantIdOrderByIdDesc(requireTenant()).stream()
                 .map(this::toMessengerRes)
                 .toList();
     }
@@ -66,7 +68,8 @@ public class SystemConfigService {
 
     @Transactional
     public ResEmailSenderConfigDTO updateEmailSenderConfig(Long id, ReqEmailSenderConfigDTO req) throws IdInvalidException {
-        EmailSenderConfig config = emailSenderConfigRepository.findById(id)
+        long tid = requireTenant();
+        EmailSenderConfig config = emailSenderConfigRepository.findByIdAndTenantId(id, tid)
                 .orElseThrow(() -> new IdInvalidException("Cấu hình email không tồn tại"));
         config.setEmail(req.getEmail().trim());
         config.setPasswordEncrypted(sensitiveDataCryptoService.encrypt(req.getPassword().trim()));
@@ -78,10 +81,10 @@ public class SystemConfigService {
 
     @Transactional
     public void deleteEmailSenderConfig(Long id) throws IdInvalidException {
-        if (!emailSenderConfigRepository.existsById(id)) {
-            throw new IdInvalidException("Cấu hình email không tồn tại");
-        }
-        emailSenderConfigRepository.deleteById(id);
+        long tid = requireTenant();
+        EmailSenderConfig config = emailSenderConfigRepository.findByIdAndTenantId(id, tid)
+                .orElseThrow(() -> new IdInvalidException("Cấu hình email không tồn tại"));
+        emailSenderConfigRepository.delete(config);
     }
 
     @Transactional
@@ -96,7 +99,8 @@ public class SystemConfigService {
 
     @Transactional
     public ResBankAccountConfigDTO updateBankAccountConfig(Long id, ReqBankAccountConfigDTO req) throws IdInvalidException {
-        BankAccountConfig config = bankAccountConfigRepository.findById(id)
+        long tid = requireTenant();
+        BankAccountConfig config = bankAccountConfigRepository.findByIdAndTenantId(id, tid)
                 .orElseThrow(() -> new IdInvalidException("Tài khoản ngân hàng không tồn tại"));
         config.setBankCode(req.getBankCode().trim());
         config.setAccountNoEncrypted(sensitiveDataCryptoService.encrypt(req.getAccountNo().trim()));
@@ -109,15 +113,19 @@ public class SystemConfigService {
 
     @Transactional
     public void deleteBankAccountConfig(Long id) throws IdInvalidException {
-        if (!bankAccountConfigRepository.existsById(id)) {
-            throw new IdInvalidException("Tài khoản ngân hàng không tồn tại");
-        }
-        bankAccountConfigRepository.deleteById(id);
+        long tid = requireTenant();
+        BankAccountConfig config = bankAccountConfigRepository.findByIdAndTenantId(id, tid)
+                .orElseThrow(() -> new IdInvalidException("Tài khoản ngân hàng không tồn tại"));
+        bankAccountConfigRepository.delete(config);
     }
 
     public ResPaymentBankInfoDTO getActivePaymentBankInfo() {
-        BankAccountConfig config = bankAccountConfigRepository.findFirstByActiveTrueOrderByIdDesc()
-                .orElseThrow(() -> new BadRequestException("Chưa có cấu hình tài khoản ngân hàng đang bật"));
+        return getActivePaymentBankInfoForTenant(requireTenant());
+    }
+
+    public ResPaymentBankInfoDTO getActivePaymentBankInfoForTenant(long tenantId) {
+        BankAccountConfig config = bankAccountConfigRepository.findFirstByActiveTrueAndTenantIdOrderByIdDesc(tenantId)
+                .orElseThrow(() -> new BadRequestException("Chưa có cấu hình tài khoản ngân hàng đang bật cho tenant này"));
         return new ResPaymentBankInfoDTO(
                 config.getBankCode(),
                 sensitiveDataCryptoService.decrypt(config.getAccountNameEncrypted()),
@@ -125,8 +133,13 @@ public class SystemConfigService {
     }
 
     public ResMailCredentialDTO getActiveMailCredential() {
-        EmailSenderConfig config = emailSenderConfigRepository.findFirstByActiveTrueOrderByIdDesc()
-                .orElseThrow(() -> new BadRequestException("Chưa có cấu hình email gửi đang bật"));
+        return getActiveMailCredentialForTenant(TenantService.DEFAULT_TENANT_ID);
+    }
+
+    public ResMailCredentialDTO getActiveMailCredentialForTenant(long tenantId) {
+        EmailSenderConfig config = emailSenderConfigRepository.findFirstByActiveTrueAndTenantIdOrderByIdDesc(tenantId)
+                .orElseGet(() -> emailSenderConfigRepository.findFirstByActiveTrueOrderByIdDesc()
+                        .orElseThrow(() -> new BadRequestException("Chưa có cấu hình email gửi đang bật")));
         return new ResMailCredentialDTO(
                 config.getEmail(),
                 sensitiveDataCryptoService.decrypt(config.getPasswordEncrypted()));
@@ -142,7 +155,8 @@ public class SystemConfigService {
 
     @Transactional
     public ResMessengerConfigDTO updateMessengerConfig(Long id, ReqMessengerConfigDTO req) throws IdInvalidException {
-        MessengerConfig config = messengerConfigRepository.findById(id)
+        long tid = requireTenant();
+        MessengerConfig config = messengerConfigRepository.findByIdAndTenantId(id, tid)
                 .orElseThrow(() -> new IdInvalidException("Cấu hình messenger không tồn tại"));
         config.setPageIdEncrypted(sensitiveDataCryptoService.encrypt(req.getPageId().trim()));
         if (req.getActive() != null) {
@@ -153,15 +167,16 @@ public class SystemConfigService {
 
     @Transactional
     public void deleteMessengerConfig(Long id) throws IdInvalidException {
-        if (!messengerConfigRepository.existsById(id)) {
-            throw new IdInvalidException("Cấu hình messenger không tồn tại");
-        }
-        messengerConfigRepository.deleteById(id);
+        long tid = requireTenant();
+        MessengerConfig config = messengerConfigRepository.findByIdAndTenantId(id, tid)
+                .orElseThrow(() -> new IdInvalidException("Cấu hình messenger không tồn tại"));
+        messengerConfigRepository.delete(config);
     }
 
-    public ResPublicMessengerConfigDTO getPublicMessengerConfig() {
-        MessengerConfig config = messengerConfigRepository.findFirstByActiveTrueOrderByIdDesc()
-                .orElseThrow(() -> new BadRequestException("Chưa có cấu hình messenger đang bật"));
+    public ResPublicMessengerConfigDTO getPublicMessengerConfig(long tenantId) {
+        MessengerConfig config = messengerConfigRepository.findFirstByActiveTrueAndTenantIdOrderByIdDesc(tenantId)
+                .orElseGet(() -> messengerConfigRepository.findFirstByActiveTrueOrderByIdDesc()
+                        .orElseThrow(() -> new BadRequestException("Chưa có cấu hình messenger đang bật")));
         return new ResPublicMessengerConfigDTO(sensitiveDataCryptoService.decrypt(config.getPageIdEncrypted()));
     }
 

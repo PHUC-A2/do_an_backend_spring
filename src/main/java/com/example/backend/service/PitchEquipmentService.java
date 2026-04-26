@@ -92,6 +92,7 @@ public class PitchEquipmentService {
         item.setEquipmentMobility(req.getEquipmentMobility() != null
                 ? req.getEquipmentMobility()
                 : EquipmentMobilityEnum.FIXED);
+        item.setTenantId(pitch.getTenantId());
 
         PitchEquipment saved = pitchEquipmentRepository.save(item);
         return convertToResPitchEquipmentDTO(saved);

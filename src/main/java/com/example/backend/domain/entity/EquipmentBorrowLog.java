@@ -2,6 +2,7 @@ package com.example.backend.domain.entity;
 
 import java.time.Instant;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.equipment.EquipmentBorrowLogTypeEnum;
 
@@ -28,8 +29,8 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class EquipmentBorrowLog {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class EquipmentBorrowLog extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

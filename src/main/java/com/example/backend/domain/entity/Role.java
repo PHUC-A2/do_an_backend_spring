@@ -10,12 +10,14 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -27,7 +29,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "roles")
+@Table(
+        name = "roles",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_roles_tenant_name",
+                columnNames = { "tenant_id", "name" }))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -40,8 +46,19 @@ public class Role {
     @EqualsAndHashCode.Include
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, length = 64)
     private String name;
+
+    /**
+     * {@code null} = role dùng chung toàn hệ thống (ADMIN, VIEW, …);
+     * khác null = role chỉ dùng trong shop đó.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "tenant_id",
+            foreignKey = @ForeignKey(name = "fk_roles_tenant"),
+            updatable = true)
+    private Tenant tenant;
 
     @Column(nullable = false)
     private String description;
