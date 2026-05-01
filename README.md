@@ -298,7 +298,7 @@ test_01/
 |---|---|---|
 | id | Long (PK) | ID tự động |
 | name | String | Tên sân |
-| pitchType | Enum | SEVEN / FIVE / ELEVEN |
+| pitchType (FK) | Long | Tham chiếu `pitch_types.id` |
 | pricePerHour | BigDecimal | Giá thuê mỗi giờ |
 | pitchUrl | String | URL trang sân |
 | imageUrl | String | URL ảnh sân |

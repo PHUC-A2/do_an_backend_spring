@@ -11,4 +11,5 @@ import com.example.backend.util.constant.pitch.PitchStatusEnum;
 public interface PitchRepository extends JpaRepository<Pitch, Long>, JpaSpecificationExecutor<Pitch> {
 
     long countByStatus(PitchStatusEnum status);
+    long countByPitchTypeId(Long pitchTypeId);
 }

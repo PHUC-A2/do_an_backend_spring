@@ -86,7 +86,7 @@ public class AiService {
             "\n" +
             "## THÔNG TIN HỆ THỐNG\n" +
             "- **Tên**: TBU Sport — đặt sân bóng đá trực tuyến, Trường ĐH Tây Bắc\n" +
-            "- **Loại sân**: Sân 3 người (THREE), Sân 7 người (SEVEN)\n" +
+            "- **Loại sân**: Danh sách động theo cấu hình quản trị (pitch types)\n" +
             "- **Trạng thái sân**: ACTIVE (đang hoạt động), MAINTENANCE (đang bảo trì)\n" +
             "- **Trạng thái booking**: ACTIVE (đã xác nhận) → PAID (đã thanh toán) | CANCELLED (đã hủy)\n" +
             "- **Thanh toán**: Chuyển khoản Agribank hoặc tiền mặt tại quầy\n" +
@@ -278,8 +278,9 @@ public class AiService {
             for (Pitch p : pitches) {
                 boolean isVip = vip != null && vip.getId().equals(p.getId());
                 String status = p.getStatus() == PitchStatusEnum.ACTIVE ? "✅ Hoạt động" : "🔧 Bảo trì";
-                String type = "SEVEN".equals(p.getPitchType() != null ? p.getPitchType().name() : "") ? "Sân 7 người"
-                        : "Sân 3 người";
+                String type = p.getPitchType() != null && p.getPitchType().getName() != null
+                        ? p.getPitchType().getName()
+                        : "Chưa phân loại";
                 String hours = p.isOpen24h() ? "24/7"
                         : (p.getOpenTime() != null && p.getCloseTime() != null
                                 ? p.getOpenTime().format(T_FMT) + " - " + p.getCloseTime().format(T_FMT)
