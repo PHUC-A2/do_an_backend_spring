@@ -4,6 +4,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
+import jakarta.persistence.EntityManager;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.hibernate.Session;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,10 +25,6 @@ import com.example.backend.service.TenantService;
 import com.example.backend.tenant.TenantContext;
 import com.example.backend.util.constant.tenant.TenantStatusEnum;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -30,6 +33,7 @@ public class TenantContextFilter extends OncePerRequestFilter {
     private final TenantService tenantService;
     private final TenantRepository tenantRepository;
     private final SubscriptionService subscriptionService;
+    private final EntityManager entityManager;
 
     @Override
     protected void doFilterInternal(
@@ -53,14 +57,14 @@ public class TenantContextFilter extends OncePerRequestFilter {
             Long userId = extractUserId(jwt);
             Long jwtTenantId = extractTenantId(jwt);
 
-            if (userId == null) {
-                filterChain.doFilter(request, response);
+            if (userId == null || jwtTenantId == null) {
+                unauthorized(response, "Thiếu tenantId trong JWT");
                 return;
             }
 
-            String headerTid = request.getHeader("X-Tenant-Id");
-            long effective = tenantService.resolveEffectiveTenantId(userId, jwtTenantId, headerTid);
+            long effective = tenantService.resolveEffectiveTenantId(userId, jwtTenantId);
             TenantContext.setCurrentTenantId(effective);
+            enableTenantFilter();
 
             if (requiresApprovedShopContext(request) && !hasAllAuthority(jwtAuth)) {
                 Tenant t = tenantRepository.findById(effective).orElse(null);
@@ -91,13 +95,36 @@ public class TenantContextFilter extends OncePerRequestFilter {
         }
     }
 
+    private void enableTenantFilter() {
+        if (TenantContext.isBypassForPublicMarketplace()) {
+            return;
+        }
+        try {
+            Session session = entityManager.unwrap(Session.class);
+            if (session != null && session.getEnabledFilter("tenantFilter") == null) {
+                session.enableFilter("tenantFilter")
+                        .setParameter("tenantId", TenantContext.requireCurrentTenantId());
+            }
+        } catch (IllegalStateException ignored) {
+        }
+    }
+
+    private void unauthorized(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getOutputStream()
+                .write(("{\"statusCode\":401,\"message\":\"" + message + "\"}").getBytes(StandardCharsets.UTF_8));
+    }
+
     private static boolean hasAllAuthority(JwtAuthenticationToken auth) {
         return auth.getAuthorities().stream().anyMatch(a -> "ALL".equals(a.getAuthority()));
     }
 
     /**
      * Các API quản lý cần tenant đã APPROVED (trừ quản trị hệ thống có quyền ALL).
-     * Cho phép marketplace: GET sân công khai, client, auth, duyệt tenant, thiết bị push, gửi yêu cầu chủ sân.
+     * Cho phép marketplace: GET sân công khai, client, auth, duyệt tenant, thiết bị
+     * push, gửi yêu cầu chủ sân.
      */
     private static boolean requiresApprovedShopContext(HttpServletRequest request) {
         String path = request.getRequestURI();

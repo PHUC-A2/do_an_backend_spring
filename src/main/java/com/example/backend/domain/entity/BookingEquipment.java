@@ -90,7 +90,8 @@ public class BookingEquipment extends BaseTenantEntity {
     private String staffSignName;
 
     /**
-     * Họ tên tài khoản đặt sân (snapshot lúc hoàn tất biên bản) — luôn lưu để in/audit,
+     * Họ tên tài khoản đặt sân (snapshot lúc hoàn tất biên bản) — luôn lưu để
+     * in/audit,
      * không phụ thuộc đổi tên user sau này.
      */
     @Column(length = 200)
@@ -114,7 +115,10 @@ public class BookingEquipment extends BaseTenantEntity {
     /** Có in / lưu biên bản trả hay không (lúc hoàn tất trả). */
     private Boolean returnReportPrintOptIn;
 
-    /** Người nhận bên sân (nhân viên / bên giao nhận nhận lại thiết bị) — snapshot lúc trả. */
+    /**
+     * Người nhận bên sân (nhân viên / bên giao nhận nhận lại thiết bị) — snapshot
+     * lúc trả.
+     */
     @Column(length = 200)
     private String receiverNameSnapshot;
 
@@ -122,7 +126,8 @@ public class BookingEquipment extends BaseTenantEntity {
     private String receiverPhoneSnapshot;
 
     /**
-     * Admin đã xác nhận đã kiểm tra biên bản trả (bắt buộc nếu khách tự ghi nhận trả; admin tự nhập trả thì coi như đã
+     * Admin đã xác nhận đã kiểm tra biên bản trả (bắt buộc nếu khách tự ghi nhận
+     * trả; admin tự nhập trả thì coi như đã
      * xác nhận).
      */
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")

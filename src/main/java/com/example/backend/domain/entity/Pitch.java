@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.SecurityUtil;
 import com.example.backend.util.constant.pitch.PitchStatusEnum;
 import com.example.backend.util.constant.pitch.PitchTypeEnum;
@@ -31,21 +32,20 @@ import lombok.Getter;
 import lombok.Setter;
 
 @Entity
-@Table(name = "pitches")
+@Table(name = "pitches", uniqueConstraints = {
+        @jakarta.persistence.UniqueConstraint(columnNames = { "tenant_id", "name" })
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
-public class Pitch {
+public class Pitch extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @EqualsAndHashCode.Include
     private Long id;
-
-    @Column(name = "tenant_id", nullable = false)
-    private Long tenantId;
 
     @Column(nullable = false)
     private String name;
@@ -76,9 +76,9 @@ public class Pitch {
     @Column(nullable = false)
     private Double longitude; // kinh độ
 
-    private Double length;   // chiều dài sân (mét)
-    private Double width;    // chiều rộng sân (mét)
-    private Double height;   // chiều cao lưới / không gian đứng (mét)
+    private Double length; // chiều dài sân (mét)
+    private Double width; // chiều rộng sân (mét)
+    private Double height; // chiều cao lưới / không gian đứng (mét)
     private String imageUrl; // tên file ảnh, ví dụ: pitch_01.jpg
 
     @OneToMany(mappedBy = "pitch", fetch = FetchType.LAZY)
@@ -86,11 +86,7 @@ public class Pitch {
     private List<Booking> bookings = new ArrayList<>();
 
     // Giá theo khung giờ (áp dụng theo giờ trong ngày, lặp lại mỗi ngày)
-    @OneToMany(
-            mappedBy = "pitch",
-            fetch = FetchType.EAGER,
-            cascade = CascadeType.ALL,
-            orphanRemoval = true)
+    @OneToMany(mappedBy = "pitch", fetch = FetchType.EAGER, cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PitchHourlyPrice> hourlyPrices = new ArrayList<>();
 
     private Instant createdAt;

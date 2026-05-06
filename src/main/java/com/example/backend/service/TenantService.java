@@ -41,7 +41,8 @@ public class TenantService {
     private final SubscriptionService subscriptionService;
 
     /**
-     * Tenant mặc định khi đăng nhập / refresh: ưu tiên cửa hàng đã duyệt (id &gt; 1), tránh gắn
+     * Tenant mặc định khi đăng nhập / refresh: ưu tiên cửa hàng đã duyệt (id &gt;
+     * 1), tránh gắn
      * chủ sân / nhân viên vào ngữ cảnh hệ thống (1) nếu họ còn thuộc shop thật.
      */
     @Transactional(readOnly = true)
@@ -79,7 +80,8 @@ public class TenantService {
     }
 
     /**
-     * Cửa hàng đã duyệt đầu tiên (id &gt; 1) của user, hoặc null nếu chỉ thuộc hệ thống / chưa có shop.
+     * Cửa hàng đã duyệt đầu tiên (id &gt; 1) của user, hoặc null nếu chỉ thuộc hệ
+     * thống / chưa có shop.
      */
     @Transactional(readOnly = true)
     public Optional<Long> preferredNonSystemShopTenantId(@NonNull Long userId) {
@@ -116,7 +118,8 @@ public class TenantService {
         String submitted = req.getContactEmail().trim();
         User emailUser = userRepository.findByEmailIgnoreCase(submitted);
         if (emailUser == null) {
-            throw new BadRequestException("Email này chưa đăng ký trên hệ thống. Hãy tạo tài khoản bằng email sau đó gửi lại.");
+            throw new BadRequestException(
+                    "Email này chưa đăng ký trên hệ thống. Hãy tạo tài khoản bằng email sau đó gửi lại.");
         }
         if (emailUser.getStatus() != UserStatusEnum.ACTIVE) {
             throw new BadRequestException(
@@ -341,23 +344,11 @@ public class TenantService {
                 .orElse(false);
     }
 
-    public long resolveEffectiveTenantId(@NonNull Long userId, Long jwtTenantId, String headerTenantId) {
-        if (headerTenantId != null && !headerTenantId.isBlank()) {
-            long requested;
-            try {
-                requested = Long.parseLong(headerTenantId.trim());
-            } catch (NumberFormatException ex) {
-                throw new BadRequestException("X-Tenant-Id không hợp lệ");
-            }
-            if (isUserInTenant(userId, requested)) {
-                return requested;
-            }
-            // Client gửi X-Tenant-Id cũ / lệch (localStorage) — không ném 400, dùng JWT rồi mặc định
-        }
+    public long resolveEffectiveTenantId(@NonNull Long userId, Long jwtTenantId) {
         if (jwtTenantId != null) {
             return jwtTenantId;
         }
-        return DEFAULT_TENANT_ID;
+        throw new BadRequestException("Thiếu tenantId trong JWT");
     }
 
     @Transactional

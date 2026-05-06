@@ -4,6 +4,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.springframework.beans.factory.annotation.Value;
+import jakarta.persistence.EntityManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -45,8 +46,9 @@ public class SecurityConfiguration {
         public TenantContextFilter tenantContextFilter(
                         TenantService tenantService,
                         TenantRepository tenantRepository,
-                        SubscriptionService subscriptionService) {
-                return new TenantContextFilter(tenantService, tenantRepository, subscriptionService);
+                        SubscriptionService subscriptionService,
+                        EntityManager entityManager) {
+                return new TenantContextFilter(tenantService, tenantRepository, subscriptionService, entityManager);
         }
 
         @Bean

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.example.backend.domain.entity.base.BaseTenantEntity;
 import com.example.backend.util.SecurityUtil;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -29,17 +30,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(
-        name = "roles",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_roles_tenant_name",
-                columnNames = { "tenant_id", "name" }))
+@Table(name = "roles", uniqueConstraints = @UniqueConstraint(name = "uk_roles_tenant_name", columnNames = { "tenant_id",
+        "name" }))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
-public class Role {
+@EqualsAndHashCode(onlyExplicitlyIncluded = true, callSuper = false)
+public class Role extends BaseTenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -54,10 +52,7 @@ public class Role {
      * khác null = role chỉ dùng trong shop đó.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(
-            name = "tenant_id",
-            foreignKey = @ForeignKey(name = "fk_roles_tenant"),
-            updatable = true)
+    @JoinColumn(name = "tenant_id", foreignKey = @ForeignKey(name = "fk_roles_tenant"), updatable = true)
     private Tenant tenant;
 
     @Column(nullable = false)

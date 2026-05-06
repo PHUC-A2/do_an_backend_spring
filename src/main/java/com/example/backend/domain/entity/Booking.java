@@ -50,7 +50,7 @@ public class Booking extends BaseTenantEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pitch_id", nullable = false)
     private Pitch pitch;
 
