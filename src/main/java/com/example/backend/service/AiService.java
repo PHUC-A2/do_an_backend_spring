@@ -172,6 +172,14 @@ public class AiService {
                     "SYSTEM", false, 0);
         }
 
+        String bookingShortcut = buildBookingShortcut(trimmed, offTopic, user);
+        if (bookingShortcut != null) {
+            session.setTotalMessageCount(session.getTotalMessageCount() + 1);
+            sessionRepo.save(session);
+            int remaining = maxOnTopic - session.getTotalMessageCount();
+            return new ResChatDTO(bookingShortcut, "SYSTEM", false, remaining);
+        }
+
         String systemPrompt = buildClientSystemPrompt();
         String enriched = offTopic ? trimmed : enrichWithContext(trimmed, user);
         String[] providerUsed = { "" };
@@ -221,6 +229,11 @@ public class AiService {
         prompt.append("\n").append(aiKnowledgeContextService.buildAggregatedSnapshotMarkdown());
         appendPitchInfo(prompt);
         appendAvailablePitchesToday(prompt);
+        prompt.append("\n## QUY TẮC TRẢ LỜI THEO DỮ LIỆU THỰC TẾ\n")
+                .append("- Chỉ được sử dụng dữ liệu trong phần \"DỮ LIỆU THỰC TẾ\" bên dưới.\n")
+                .append("- Không suy đoán, không bịa thông tin.\n")
+                .append("- Nếu không có dữ liệu cho câu hỏi này, trả lời đúng: \"Tôi không tìm thấy thông tin này trong hệ thống.\"\n")
+                .append("- Với câu hỏi về lịch đặt, chỉ dùng dữ liệu booking đã cung cấp trong context.\n");
         return prompt.toString();
     }
 
@@ -230,6 +243,11 @@ public class AiService {
         prompt.append("\n").append(aiKnowledgeContextService.buildAggregatedSnapshotMarkdown());
         appendPitchInfo(prompt);
         appendAvailablePitchesToday(prompt);
+        prompt.append("\n## QUY TẮC TRẢ LỜI THEO DỮ LIỆU THỰC TẾ\n")
+                .append("- Chỉ được sử dụng dữ liệu trong phần \"DỮ LIỆU THỰC TẾ\" bên dưới.\n")
+                .append("- Không suy đoán, không bịa thông tin.\n")
+                .append("- Nếu không có dữ liệu cho câu hỏi này, trả lời đúng: \"Tôi không tìm thấy thông tin này trong hệ thống.\"\n")
+                .append("- Với câu hỏi về lịch đặt, chỉ dùng dữ liệu booking đã cung cấp trong context.\n");
 
         prompt.append("\n## BÁO CÁO THỐNG KÊ HIỆN TẠI\n");
         try {
@@ -365,8 +383,8 @@ public class AiService {
 
     // ─── Enrich user message với context cá nhân ─────────────────────────────
     private String enrichWithContext(String message, User user) {
-        StringBuilder ctx = new StringBuilder(message);
-        ctx.append("\n\n[Thời gian hiện tại: ").append(LocalDateTime.now().format(DT_FMT)).append("]");
+        StringBuilder ctx = new StringBuilder("DỮ LIỆU THỰC TẾ:\n");
+        ctx.append("- Thời gian hiện tại: ").append(LocalDateTime.now().format(DT_FMT)).append("\n");
 
         if (user != null) {
             try {
@@ -377,18 +395,59 @@ public class AiService {
                         .filter(b -> b.getUser() != null && b.getUser().getId().equals(user.getId()))
                         .toList();
                 if (!mine.isEmpty()) {
-                    ctx.append("\n[Lịch sắp tới của bạn: ");
+                    ctx.append("BOOKING:\n");
                     for (Booking b : mine) {
-                        ctx.append(b.getPitch() != null ? b.getPitch().getName() : "Sân")
-                                .append(" lúc ").append(b.getStartDateTime().format(DT_FMT))
-                                .append("; ");
+                        String pitchName = b.getPitch() != null ? b.getPitch().getName() : "Sân";
+                        ctx.append("- Sân: ").append(pitchName).append("\n");
+                        ctx.append("  Khung giờ: ").append(b.getStartDateTime().format(DT_FMT))
+                                .append(" - ").append(b.getEndDateTime().format(DT_FMT)).append("\n");
+                        if (b.getStatus() != null) {
+                            ctx.append("  Trạng thái booking: ").append(b.getStatus()).append("\n");
+                        }
                     }
-                    ctx.append("]");
                 }
             } catch (Exception ignored) {
             }
         }
+        ctx.append("\n---\n");
+        ctx.append(message);
         return ctx.toString();
+    }
+
+    private String buildBookingShortcut(String message, boolean offTopic, User user) {
+        if (offTopic || user == null) {
+            return null;
+        }
+        String lower = message.toLowerCase();
+        if (!(lower.contains("lịch") || lower.contains("booking"))) {
+            return null;
+        }
+
+        try {
+            List<Booking> upcoming = bookingRepository.findByStatusInAndStartDateTimeBetween(
+                    List.of(BookingStatusEnum.ACTIVE, BookingStatusEnum.PAID),
+                    LocalDateTime.now(), LocalDateTime.now().plusDays(7));
+            List<Booking> mine = upcoming.stream()
+                    .filter(b -> b.getUser() != null && b.getUser().getId().equals(user.getId()))
+                    .toList();
+            if (mine.isEmpty()) {
+                return "Tôi không tìm thấy thông tin này trong hệ thống.";
+            }
+
+            StringBuilder result = new StringBuilder("Dữ liệu thực tế về lịch đặt của bạn:\n");
+            for (Booking b : mine) {
+                String pitchName = b.getPitch() != null ? b.getPitch().getName() : "Sân";
+                result.append("- Sân: ").append(pitchName).append("\n");
+                result.append("  Khung giờ: ").append(b.getStartDateTime().format(DT_FMT))
+                        .append(" - ").append(b.getEndDateTime().format(DT_FMT)).append("\n");
+                if (b.getStatus() != null) {
+                    result.append("  Trạng thái booking: ").append(b.getStatus()).append("\n");
+                }
+            }
+            return result.toString();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private boolean isOffTopic(String message) {
@@ -406,7 +465,8 @@ public class AiService {
     }
 
     /**
-     * True nếu trong cửa sổ lịch sử gần đây đã có ít nhất {@link #duplicateMinRepeats} tin user trùng nội dung
+     * True nếu trong cửa sổ lịch sử gần đây đã có ít nhất
+     * {@link #duplicateMinRepeats} tin user trùng nội dung
      * (tin hiện tại là lần lặp thứ 3 trở lên).
      */
     private boolean isDuplicateUserSpam(List<ReqChatDTO.MessageDTO> history, String currentMessage) {
